@@ -1,0 +1,109 @@
+services:
+
+  # -------------------------------
+  # 1) Keycloak
+  # -------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Use Postgres for the Keycloak database:
+      DB_VENDOR: postgres
+      DB_ADDR: keycloak-db
+      DB_PORT: 5432
+      DB_DATABASE: keycloakdb
+      DB_USER: keycloakuser
+      DB_PASSWORD: keycloakpass
+
+      # Optional: specify hostname if needed
+      # KEYCLOAK_HOSTNAME: keycloak.localhost
+      # "start-dev" runs Keycloak in dev mode, but still uses Postgres instead of the embedded H2  
+      # "start" for production mode (no dev tweaks)
+    command: ["start-dev"]  
+    depends_on:
+      - keycloak-db
+    ports:
+      - "8080:8080"
+    # volumes, if needed for themes or custom configs, can go here
+
+  # -------------------------------
+  # 2) Postgres DB for Keycloak
+  # -------------------------------
+  keycloak-db:
+    image: postgres:15.2
+    container_name: keycloak-db
+    environment:
+      POSTGRES_USER: keycloakuser
+      POSTGRES_PASSWORD: keycloakpass
+      POSTGRES_DB: keycloakdb
+    ports:
+      - "5433:5432"  # Expose if you need to connect externally on 5433
+    volumes:
+      - ./volumes/keycloak_db_data:/var/lib/postgresql/data
+    # No depends_on needed since Keycloak will wait for this
+  
+  # -------------------------------
+  # 3) Postgres DB for DMS.Auth
+  # -------------------------------
+  dms-db:
+    image: postgres:15.2
+    container_name: dms-db
+    environment:
+      POSTGRES_USER: dmsauthuser
+      POSTGRES_PASSWORD: dmsauthpass
+      POSTGRES_DB: dmsauthdb
+    ports:
+      - "5434:5432"  # Expose if you want external DB access
+    volumes:
+      - ./volumes/dms_db_data:/var/lib/postgresql/data
+    # The microservice depends_on this
+
+    # image: mcr.microsoft.com/mssql/server:2022-latest
+    # container_name: dms-db
+    # environment:
+    #   SA_PASSWORD: "YourStrongPassw0rd"
+    #   ACCEPT_EULA: "Y"
+    #   # Additional config can go here
+    # ports:
+    #   - "1433:1433"  # Expose SQL Server on localhost:1433
+    # # If you want a named volume for data persistence:
+    # # volumes:
+    # #   - sql_data:/var/opt/mssql
+
+
+  # -------------------------------
+  # 4) DMS.Auth (ASP.NET Core)
+  # -------------------------------
+  dms.auth.webapi:
+    image: ${DOCKER_REGISTRY-}dmsauthwebapi
+    build:
+      context: .
+      dockerfile: src/WebAPI/Dockerfile   
+    environment:
+      # .NET environment
+      ASPNETCORE_ENVIRONMENT: "Development"
+
+      # Keycloak config - point the microservice to the internal Keycloak address
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_REALM: "myrealm"
+      KEYCLOAK_CLIENT_ID: "myclient"
+      KEYCLOAK_CLIENT_SECRET: "mysecret" # or manage secrets via a safer method
+
+      # Example DB connection string for Postgres
+      # (the host is "dms-db", the container name in the same docker network)
+      DB_CONNECTION_STRING: "Host=dms-db;Port=5432;Database=dmsauthdb;User ID=dmsauthuser;Password=dmsauthpass"
+      #DB_CONNECTION_STRING: "Server=sqlserver;Database=MyDb;User ID=sa;Password=YourStrongPassw0rd;TrustServerCertificate=True"
+
+    depends_on:
+      - keycloak
+      - dms-db
+    ports:
+      - "5000:8070"
+
+        
+
+
+
