@@ -1,26 +1,40 @@
 ﻿using System.Text;
-using RabbitMQ.Client;
-using Notifications.Application.Interfaces;
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
+
 using Notifications.Infrastructure.Configuration;
+using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
 public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
 {
-    private IChannel? _channel;
-    private IConnection? _connection;
+    private readonly ILogger<RabbitMqPublisher> _logger;
+    private readonly RabbitMqSettings _options;
     private readonly ConnectionFactory _factory;
+    private IConnection? _connection;
+    private IChannel? _channel;
+    private readonly ConcurrentDictionary<string, bool> _declaredQueues = new();
 
-    public RabbitMqPublisher(IOptions<RabbitMqSettings> options)
+    public RabbitMqPublisher(
+        IOptions<RabbitMqSettings> options,
+        ILogger<RabbitMqPublisher> logger)
     {
+        _logger = logger;
+        _options = options.Value;
+
         _factory = new ConnectionFactory
         {
-            HostName = options.Value.HostName,
-            UserName = options.Value.UserName,
-            Password = options.Value.Password,
-            Port = options.Value.Port,
-            //DispatchConsumersAsync = true
+            HostName = _options.HostName,
+            Port = _options.Port,
+            UserName = _options.UserName,
+            Password = _options.Password,
+            //DispatchConsumersAsync = true,
+            AutomaticRecoveryEnabled = true
         };
     }
 
@@ -30,27 +44,64 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
         _channel = await _connection.CreateChannelAsync();
     }
 
-    public async Task PublishMessageAsync(string queueName, string message)
+    public async Task PublishMessageAsync(string queueName, string message, CancellationToken cancellationToken = default)
     {
         if (_channel == null)
-            throw new InvalidOperationException("RabbitMQ channel is not initialized. Call InitializeAsync() first.");
+        {
+            _logger.LogError("RabbitMQ channel is not initialized.");
+            throw new InvalidOperationException("RabbitMQ channel is not initialized.");
+        }
 
-        await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false);
-        var body = Encoding.UTF8.GetBytes(message);
-        await _channel.BasicPublishAsync(exchange: "", routingKey: queueName, body: body);
-       
+        try
+        {
+            if (!_declaredQueues.ContainsKey(queueName))
+            {
+                await _channel.QueueDeclareAsync(queue: queueName,
+                                      durable: true,
+                                      exclusive: false,
+                                      autoDelete: false,
+                                      arguments: null);
+
+                _declaredQueues.TryAdd(queueName, true);
+                _logger.LogInformation("Declared queue {Queue}", queueName);
+            }
+
+            var body = Encoding.UTF8.GetBytes(message);
+
+            await _channel.BasicPublishAsync(exchange: "",
+                                  routingKey: queueName,                                  
+                                  body: body);
+
+            _logger.LogInformation("Published message to queue {Queue}", queueName);
+        }
+        catch (AlreadyClosedException ex)
+        {
+            _logger.LogError(ex, "RabbitMQ connection/channel was closed.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish message to queue {Queue}", queueName);
+            throw;
+        }
+
+        await Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_channel is IAsyncDisposable asyncChannel)
-            await asyncChannel.DisposeAsync();
-        else
-            _channel?.Dispose();
+        try
+        {
+            if (_channel is IAsyncDisposable asyncChannel)
+                await asyncChannel.DisposeAsync();
+            else
+                _channel?.Dispose();
 
-        if (_connection is IAsyncDisposable asyncConn)
-            await asyncConn.DisposeAsync();
-        else
             _connection?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while disposing RabbitMQ resources.");
+        }
     }
 }

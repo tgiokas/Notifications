@@ -39,8 +39,7 @@ builder.Services.AddSingleton<RabbitMqPublisher>(); // Needed to call Initialize
 builder.Services.AddSingleton<IRabbitMqPublisher>(provider =>
 {
     var publisher = provider.GetRequiredService<RabbitMqPublisher>();
-    var task = publisher.InitializeAsync();
-    task.GetAwaiter().GetResult(); // Safe here since DI is sync
+    publisher.InitializeAsync().GetAwaiter().GetResult();
     return publisher;
 });
 
