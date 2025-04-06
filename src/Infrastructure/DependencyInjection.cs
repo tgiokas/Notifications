@@ -5,6 +5,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 using Notifications.Application.Interfaces;
 using Notifications.Infrastructure.Persistence;
+using Notifications.Domain.Interfaces;
+using Notifications.Infrastructure.Repositories;
 
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -44,7 +46,7 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext, ApplicationDbContext>();
 
-        //services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
 
         return services;
     }

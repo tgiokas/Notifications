@@ -1,11 +1,9 @@
 ﻿namespace Notifications.Infrastructure.Configuration;
 
-public class SmtpSettings
+public class RabbitMqSettings
 {
-    public string Host { get; set; } = default!;
-    public int Port { get; set; } = 587;
-    public string Username { get; set; } = default!;
-    public string Password { get; set; } = default!;
-    public string From { get; set; } = default!;
-    public bool UseSsl { get; set; } = true;
+    public string HostName { get; set; } = "localhost";
+    public string UserName { get; set; } = "guest";
+    public string Password { get; set; } = "guest";
+    public int Port { get; set; } = 5672;
 }
