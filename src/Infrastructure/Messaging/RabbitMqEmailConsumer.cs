@@ -1,13 +1,15 @@
 ﻿using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
+
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+
 using Notifications.Infrastructure.Configuration;
 using Notifications.Application.DTOs;
-using Microsoft.Extensions.DependencyInjection;
 using Notifications.Application.Interfaces;
-using Microsoft.Extensions.Hosting;
 
 namespace Notifications.Infrastructure.Messaging;
 

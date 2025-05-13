@@ -1,11 +1,11 @@
 ﻿using System.Net;
 using System.Net.Mail;
-using Notifications.Application.DTOs;
-
-using Notifications.Application.Interfaces;
-using Notifications.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+using Notifications.Application.DTOs;
+using Notifications.Application.Interfaces;
+using Notifications.Infrastructure.Configuration;
 
 namespace Notifications.Infrastructure.Messaging;
 

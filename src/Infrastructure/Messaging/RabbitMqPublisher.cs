@@ -33,7 +33,6 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
             Port = _options.Port,
             UserName = _options.UserName,
             Password = _options.Password,
-            //DispatchConsumersAsync = true,
             AutomaticRecoveryEnabled = true
         };
     }
@@ -42,9 +41,16 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
     {
         _connection = await _factory.CreateConnectionAsync();
         _channel = await _connection.CreateChannelAsync();
+
+        // Declare exchange once on startup
+        await _channel.ExchangeDeclareAsync(
+            exchange: _options.ExchangeName,
+            type: ExchangeType.Direct,
+            durable: true,
+            autoDelete: false);
     }
 
-    public async Task PublishMessageAsync(string queueName, string message, CancellationToken cancellationToken = default)
+    public async Task PublishMessageAsync(string routingKey, string message, CancellationToken cancellationToken = default)
     {
         if (_channel == null)
         {
@@ -54,25 +60,37 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
 
         try
         {
-            if (!_declaredQueues.ContainsKey(queueName))
+            // Only declare queues and bind them once
+            if (!_declaredQueues.ContainsKey(routingKey))
             {
-                await _channel.QueueDeclareAsync(queue: queueName,
-                                      durable: true,
-                                      exclusive: false,
-                                      autoDelete: false,
-                                      arguments: null);
+                var queueName = $"notifications.{routingKey}";
 
-                _declaredQueues.TryAdd(queueName, true);
-                _logger.LogInformation("Declared queue {Queue}", queueName);
+                await _channel.QueueDeclareAsync(
+                    queue: queueName,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: null);
+
+                await _channel.QueueBindAsync(
+                    queue: queueName,
+                    exchange: _options.ExchangeName,
+                    routingKey: routingKey);
+
+                _declaredQueues.TryAdd(routingKey, true);
+                _logger.LogInformation("Declared and bound queue {Queue} to exchange {Exchange} with routing key {Key}",
+                    queueName, _options.ExchangeName, routingKey);
             }
 
             var body = Encoding.UTF8.GetBytes(message);
 
-            await _channel.BasicPublishAsync(exchange: "",
-                                  routingKey: queueName,                                  
-                                  body: body);
+            await _channel.BasicPublishAsync(
+                exchange: _options.ExchangeName,
+                routingKey: routingKey,
+                body: body);
 
-            _logger.LogInformation("Published message to queue {Queue}", queueName);
+            _logger.LogInformation("Published message to exchange {Exchange} with routing key {Key}",
+                _options.ExchangeName, routingKey);
         }
         catch (AlreadyClosedException ex)
         {
@@ -81,7 +99,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to publish message to queue {Queue}", queueName);
+            _logger.LogError(ex, "Failed to publish message to exchange {Exchange} with key {Key}", _options.ExchangeName, routingKey);
             throw;
         }
 
@@ -105,3 +123,4 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
         }
     }
 }
+

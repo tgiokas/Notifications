@@ -22,7 +22,7 @@ public class NotificationPublisher : INotificationPublisher
 
     public async Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default)
     {
-
+        // Create domain entity and save it with Pending status
         //var notification = new Notification
         //{
         //    Id = Guid.NewGuid(),
@@ -36,15 +36,36 @@ public class NotificationPublisher : INotificationPublisher
 
         //await _notificationRepository.AddAsync(notification);
 
-        var queueName = request.Channel.ToLower() switch
+        // Determine routing key based on channel
+        var routingKey = request.Channel.ToLower() switch
         {
-            "email" => "notifications.email",
-            "sms" => "notifications.sms",
+            "email" => "email",
+            "sms" => "sms",
             _ => throw new ArgumentOutOfRangeException(nameof(request.Channel), $"Unsupported channel: {request.Channel}")
         };
 
         var message = JsonSerializer.Serialize(request);
-        await _rabbitMqPublisher.PublishMessageAsync(queueName, message);
+
+        try
+        {
+            // Will publish to exchange: "notifications"
+            // With routing key: "email"
+            // Routed to queue: "notifications.email"
+            await _rabbitMqPublisher.PublishMessageAsync(routingKey, message, cancellationToken);
+
+            // Update the entity as Sent after successful publish
+            //notification.Status = NotificationStatus.Sent.ToString();
+            //notification.SentAt = DateTime.UtcNow;
+
+            //await _notificationRepository.UpdateAsync(notification);
+        }
+        catch (Exception)
+        {
+            // You could also update status to Failed here or implement retry logic
+            //notification.Status = NotificationStatus.Failed.ToString();
+            //await _notificationRepository.UpdateAsync(notification);
+
+            throw;
+        }
     }
 }
-
