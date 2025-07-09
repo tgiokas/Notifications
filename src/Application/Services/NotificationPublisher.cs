@@ -9,14 +9,14 @@ namespace Notifications.Application.Services;
 
 public class NotificationPublisher : INotificationPublisher
 {
-    private readonly IRabbitMqPublisher _rabbitMqPublisher;
+    private readonly IKafkaPublisher _kafkaPublisher;
     private readonly INotificationRepository _notificationRepository;
 
     public NotificationPublisher(
-        IRabbitMqPublisher rabbitMqPublisher,
+        IKafkaPublisher kafkaPublisher,
         INotificationRepository notificationRepository)
     {
-        _rabbitMqPublisher = rabbitMqPublisher;
+        _kafkaPublisher = kafkaPublisher;
         _notificationRepository = notificationRepository;
     }
 
@@ -36,8 +36,8 @@ public class NotificationPublisher : INotificationPublisher
 
         //await _notificationRepository.AddAsync(notification);
 
-        // Determine routing key based on channel
-        var routingKey = request.Channel.ToLower() switch
+        // Determine topic based on channel
+        var topic = request.Channel.ToLower() switch
         {
             "email" => "email",
             "sms" => "sms",
@@ -48,10 +48,8 @@ public class NotificationPublisher : INotificationPublisher
 
         try
         {
-            // Will publish to exchange: "notifications"
-            // With routing key: "email"
-            // Routed to queue: "notifications.email"
-            await _rabbitMqPublisher.PublishMessageAsync(routingKey, message, cancellationToken);
+            // Publish to Kafka topic (e.g., "email" or "sms")
+            await _kafkaPublisher.PublishMessageAsync(topic, message, cancellationToken);
 
             // Update the entity as Sent after successful publish
             //notification.Status = NotificationStatus.Sent.ToString();

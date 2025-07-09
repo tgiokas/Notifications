@@ -6,8 +6,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<InvariantGlobalization>false</InvariantGlobalization>
 		<IsPackable>true</IsPackable>
-		<RootNamespace>DMS.Auth.WebApi</RootNamespace>
-		<AssemblyName>DMS.Auth.WebApi</AssemblyName>
+		<RootNamespace>Notifications.Api</RootNamespace>
+		<AssemblyName>Notifications.Api</AssemblyName>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<UserSecretsId>17191613-7c00-44dd-84bb-2244daf020a1</UserSecretsId>

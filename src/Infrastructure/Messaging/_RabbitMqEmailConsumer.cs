@@ -13,14 +13,14 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class RabbitMqEmailConsumer : BackgroundService
+public class _RabbitMqEmailConsumer : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly RabbitMqSettings _settings;
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public RabbitMqEmailConsumer(IServiceProvider serviceProvider, IOptions<RabbitMqSettings> options)
+    public _RabbitMqEmailConsumer(IServiceProvider serviceProvider, IOptions<RabbitMqSettings> options)
     {
         _serviceProvider = serviceProvider;
         _settings = options.Value;

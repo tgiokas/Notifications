@@ -33,15 +33,28 @@ builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 // Configuration binding
 builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMqSettings"));
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
 
 // RabbitMQ publisher
-builder.Services.AddSingleton<RabbitMqPublisher>(); // Needed to call InitializeAsync()
-builder.Services.AddSingleton<IRabbitMqPublisher>(provider =>
-{
-    var publisher = provider.GetRequiredService<RabbitMqPublisher>();
-    publisher.InitializeAsync().GetAwaiter().GetResult();
-    return publisher;
-});
+//builder.Services.AddSingleton<RabbitMqPublisher>(); // Needed to call InitializeAsync()
+//builder.Services.AddSingleton<IRabbitMqPublisher>(provider =>
+//{
+//    var publisher = provider.GetRequiredService<RabbitMqPublisher>();
+//    publisher.InitializeAsync().GetAwaiter().GetResult();
+//    return publisher;
+//});
+
+// KafkaPublisher
+builder.Services.AddSingleton<KafkaPublisher>();
+builder.Services.AddSingleton<IKafkaPublisher>(provider => provider.GetRequiredService<KafkaPublisher>());
+
+// Register Kafka producer service
+builder.Services.AddSingleton<KafkaProducerService<string, string>>();
+
+// Register Kafka consumer service
+builder.Services.AddSingleton<MessageStoreService<string>>();
+builder.Services.AddHostedService<KafkaConsumerService<string, string>>();
+
 
 // Application layer
 builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
@@ -52,12 +65,7 @@ builder.Services.AddScoped<IEmailSender, EmailSender>();
 // Hosted background services (RabbitMQ consumers per channel)
 //builder.Services.AddHostedService<RabbitMqEmailConsumer>();
 
-
-builder.Services.AddHostedService<RabbitMqEmailConsumer>();
-
 builder.Services.AddControllers();
-
-builder.Services.AddEndpointsApiExplorer();
 
 //builder.Services.AddSwaggerGen();
 
@@ -96,44 +104,58 @@ builder.Services.AddEndpointsApiExplorer();
 //});
 
 // Configure Authentication & Keycloak JWT Bearer
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+//builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//    .AddJwtBearer(options =>
+//    {
+//        options.Authority = builder.Configuration["Keycloak:Authority"];
+//        options.Audience = builder.Configuration["Keycloak:ClientId"];
+//        options.RequireHttpsMetadata = false; // Only for local dev
+//        options.TokenValidationParameters = new TokenValidationParameters
+//        {
+//            ValidateIssuer = true,
+//            ValidIssuer = builder.Configuration["Keycloak:Authority"],            
+//            ValidateAudience = true,
+//            ValidAudiences = new[] { "dms-auth-client", "dms-service-client", "dms-admin-client"}, // Allow multiple audiences
+//            ValidateLifetime = true,
+//            ValidateIssuerSigningKey = true,
+//            //RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+//            //RoleClaimType = "realm_access.roles",
+//            //NameClaimType = "preferred_username"
+//        };
+
+//        // Extract roles from `realm_access` JSON object using System.Text.Json
+//        options.Events = new JwtBearerEvents
+//        {
+//            OnTokenValidated = context =>
+//            {
+//                MapKeycloakRolesToRoleClaims(context);
+//                return Task.CompletedTask;
+//            }
+//        };
+
+//    });
+
+////Ensure Role-Based Access Control (RBAC) uses the correct claim mapping
+//builder.Services.AddAuthorizationBuilder()
+//    .AddPolicy("AdminOnly", policy => policy.RequireRole("admin"))
+//    .AddPolicy("UserOnly", policy => policy.RequireRole("user"))
+//    .AddPolicy("AdminOrUser", policy => policy.RequireRole("admin", "user"));
+
+// Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policyBuilder =>
     {
-        options.Authority = builder.Configuration["Keycloak:Authority"];
-        options.Audience = builder.Configuration["Keycloak:ClientId"];
-        options.RequireHttpsMetadata = false; // Only for local dev
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Keycloak:Authority"],            
-            ValidateAudience = true,
-            ValidAudiences = new[] { "dms-auth-client", "dms-service-client", "dms-admin-client"}, // Allow multiple audiences
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            //RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-            //RoleClaimType = "realm_access.roles",
-            //NameClaimType = "preferred_username"
-        };
-
-        // Extract roles from `realm_access` JSON object using System.Text.Json
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                MapKeycloakRolesToRoleClaims(context);
-                return Task.CompletedTask;
-            }
-        };
-
+        policyBuilder.AllowAnyOrigin();
+        policyBuilder.AllowAnyMethod();
+        policyBuilder.AllowAnyHeader();
     });
+});
 
-//Ensure Role-Based Access Control (RBAC) uses the correct claim mapping
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("AdminOnly", policy => policy.RequireRole("admin"))
-    .AddPolicy("UserOnly", policy => policy.RequireRole("user"))
-    .AddPolicy("AdminOrUser", policy => policy.RequireRole("admin", "user"));
+builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {
@@ -149,38 +171,4 @@ app.UseAuthorization();
 app.MapControllers();
 app.Run();
 
-void MapKeycloakRolesToRoleClaims(TokenValidatedContext context)
-{
-    var user = context.Principal;
-    var identity = user.Identity as ClaimsIdentity;
 
-    var realmAccessClaim = identity.FindFirst("realm_access");
-    if (realmAccessClaim == null)
-    {
-        Console.WriteLine("realm_access claim not found in token.");
-        return;
-    }
-
-    try
-    {
-        using var doc = JsonDocument.Parse(realmAccessClaim.Value);
-        if (doc.RootElement.TryGetProperty("roles", out var roles))
-        {
-            Console.WriteLine("Extracted Roles from Token:");
-            foreach (var role in roles.EnumerateArray())
-            {
-                string roleValue = role.GetString().ToLower();
-                identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
-                Console.WriteLine($" - {roleValue}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("No roles found in realm_access");
-        }
-    }
-    catch (JsonException ex)
-    {
-        Console.WriteLine($"Failed to parse realm_access: {ex.Message}");
-    }
-}

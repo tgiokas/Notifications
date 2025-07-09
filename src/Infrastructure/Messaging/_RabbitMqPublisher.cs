@@ -11,18 +11,18 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class RabbitMqPublisher : IRabbitMqPublisher, IAsyncDisposable
+public class _RabbitMqPublisher : _IRabbitMqPublisher, IAsyncDisposable
 {
-    private readonly ILogger<RabbitMqPublisher> _logger;
+    private readonly ILogger<_RabbitMqPublisher> _logger;
     private readonly RabbitMqSettings _options;
     private readonly ConnectionFactory _factory;
     private IConnection? _connection;
     private IChannel? _channel;
     private readonly ConcurrentDictionary<string, bool> _declaredQueues = new();
 
-    public RabbitMqPublisher(
+    public _RabbitMqPublisher(
         IOptions<RabbitMqSettings> options,
-        ILogger<RabbitMqPublisher> logger)
+        ILogger<_RabbitMqPublisher> logger)
     {
         _logger = logger;
         _options = options.Value;

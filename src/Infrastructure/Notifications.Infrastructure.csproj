@@ -4,8 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	  <RootNamespace>DMS.Auth.Infrastructure</RootNamespace>
-	  <AssemblyName>DMS.Auth.Infrastructure</AssemblyName>
+	  <RootNamespace>Notifications.Infrastructure</RootNamespace>
+	  <AssemblyName>Notifications.Infrastructure</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.11.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
