@@ -89,7 +89,7 @@ services:
     container_name: notifications-api
     build:
         context: .
-        dockerfile: src/WebAPI/Dockerfile   
+        dockerfile: src/API/Dockerfile   
     environment:
         # .NET environment
         ASPNETCORE_ENVIRONMENT: "Development"

@@ -1,6 +1,10 @@
-﻿namespace Notifications.Application.Interfaces;
+﻿using Notifications.Application.DTOs;
 
-public interface IKafkaPublisher
+namespace Notifications.Application.Interfaces;
+
+public interface IKafkaPublisher<TKey, TMessage> : IDisposable
+     where TKey : class
+     where TMessage : class
 {
-    Task PublishMessageAsync(string topic, string message, CancellationToken cancellationToken = default);
+    Task PublishMessageAsync(string topic, TKey? key, KafkaMessage<TMessage> message, CancellationToken cancellationToken = default);
 }
