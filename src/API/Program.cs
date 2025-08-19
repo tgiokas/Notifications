@@ -7,6 +7,14 @@ using Notifications.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//builder.Host.ConfigureHostOptions(o =>
+//{
+//    // Make sure an unexpected exception in a BackgroundService
+//    // doesn't bring the whole host down.
+//    o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+//});
+
+
 // Add services to the container.
 //builder.Services.AddApplicationServices();
 
@@ -22,9 +30,15 @@ builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("Kafk
 
 
 // Register of KafkaPublisher and IKafkaPublisher
-builder.Services.AddSingleton<IKafkaPublisher<string, string>, KafkaPublisher<string, string>>();
+builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisher<string, string>>();
+
+builder.Services.AddSingleton<KafkaPublisher0<string, string>>();
 //builder.Services.AddSingleton<KafkaEmailPublisher1>();
 //builder.Services.AddSingleton<IKafkaPublisher<string, NotificationRequestDto>, KafkaPublisher<string, NotificationRequestDto>>();
+
+
+//builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisherImplementation>();
+
 
 // Register of KafkaConsumer
 builder.Services.AddHostedService<KafkaEmailConsumer<string, string>>();
@@ -34,43 +48,9 @@ builder.Services.AddHostedService<KafkaEmailConsumer<string, string>>();
 builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 
-// Hosted background services (RabbitMQ consumers per channel)
-//builder.Services.AddHostedService<RabbitMqEmailConsumer>();
-
 builder.Services.AddControllers();
 
 //builder.Services.AddSwaggerGen();
-
-//builder.Services.AddSwaggerGen(x =>
-//{
-//    x.SwaggerDoc("v1", new OpenApiInfo { Title = "Api", Version = "v1" });
-//    x.AddSecurityDefinition("Bearer ", new OpenApiSecurityScheme
-//    {
-//        Description = "JWT Authorization header using the Bearer scheme.",
-//        Name = "Authorization",
-//        In = ParameterLocation.Header,
-//        Type = SecuritySchemeType.ApiKey,
-//        Scheme = "Bearer "
-//    });
-//    x.AddSecurityRequirement(new OpenApiSecurityRequirement
-//                {
-//                    {
-//                        new OpenApiSecurityScheme
-//                        {
-//                            Reference = new OpenApiReference
-//                            {
-//                                Type = ReferenceType.SecurityScheme,
-//                                Id = "Bearer "
-//                            },
-//                            Scheme = "oauth2",
-//                            Name = "Bearer ",
-//                            In = ParameterLocation.Header
-//                        },
-//                        new List<string>()
-//                    }
-//                });
-//});
-
 
 // Add CORS policy
 builder.Services.AddCors(options =>
@@ -87,6 +67,7 @@ builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
 
+app.UseCors("CorsPolicy");
 
 if (app.Environment.IsDevelopment())
 {

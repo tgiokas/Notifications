@@ -9,14 +9,14 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class KafkaEmailConsumer0 : BackgroundService
+public class KafkaEmailConsumer2 : BackgroundService
 {
     private readonly IConsumer<Ignore, string> _consumer;
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<KafkaEmailConsumer0> _logger;
+    private readonly ILogger<KafkaEmailConsumer2> _logger;
     private readonly string _topic = "email"; // Default topic for email notifications
 
-    public KafkaEmailConsumer0(IConfiguration config, IServiceProvider serviceProvider, ILogger<KafkaEmailConsumer0> logger)
+    public KafkaEmailConsumer2(IConfiguration config, IServiceProvider serviceProvider, ILogger<KafkaEmailConsumer2> logger)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;

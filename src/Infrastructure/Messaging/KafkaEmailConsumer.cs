@@ -1,11 +1,13 @@
-﻿using Confluent.Kafka;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
+using Confluent.Kafka;
+
 using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
-using System.Text.Json;
 
 namespace Notifications.Infrastructure.Messaging;
 
@@ -64,20 +66,20 @@ public class KafkaEmailConsumer<TKey, TMessage> : BackgroundService
                     var result = _consumer.Consume(TimeSpan.FromMilliseconds(100));
                     if (result != null)
                     {
-                        //// Deserialize key if present
-                        //TKey? key = null;
-                        //if (!string.IsNullOrEmpty(result.Message.Key))
-                        //{
-                        //    // If TKey is string, return the raw string
-                        //    if (typeof(TKey) == typeof(string))
-                        //    {
-                        //        key = result.Message.Key as TKey;
-                        //    }
-                        //    else
-                        //    {
-                        //        key = JsonSerializer.Deserialize<TKey>(result.Message.Key);
-                        //    }
-                        //}
+                        // Deserialize key if present
+                        TKey? key = null;
+                        if (!string.IsNullOrEmpty(result.Message.Key))
+                        {
+                            // If TKey is string, return the raw string
+                            if (typeof(TKey) == typeof(string))
+                            {
+                                key = result.Message.Key as TKey;
+                            }
+                            else
+                            {
+                                key = JsonSerializer.Deserialize<TKey>(result.Message.Key);
+                            }
+                        }
 
                         using var scope = _serviceProvider.CreateScope();
                         var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();

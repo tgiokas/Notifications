@@ -50,6 +50,7 @@ public class KafkaEmailConsumer1 : BackgroundService
             {
                 try
                 {
+                    
                     var result = _consumer.Consume(stoppingToken);
                     var email = JsonSerializer.Deserialize<NotificationRequestDto>(result.Message.Value);
 

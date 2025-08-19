@@ -6,7 +6,7 @@ using Notifications.Application.Interfaces;
 namespace Notifications.WebAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class NotificationController : ControllerBase
 {
     private readonly INotificationPublisher _publisher;
@@ -19,7 +19,10 @@ public class NotificationController : ControllerBase
         _logger = logger;
     }
 
-    [HttpPost("SendMessage")]
+    [HttpGet("ping")]
+    public IActionResult Ping() => Ok("pong");
+
+    [HttpPost("Send")]
     public async Task<IActionResult> SendMessage(KafkaMessage<NotificationRequestDto> message, CancellationToken cancellationToken)
     {
         try
