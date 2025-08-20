@@ -1,139 +1,167 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
+using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
-using Confluent.Kafka;
-
 using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class KafkaEmailConsumer<TKey, TMessage> : BackgroundService
-    where TKey : class
-    where TMessage : class
+public sealed class KafkaEmailConsumer : BackgroundService
 {
+    private readonly ILogger<KafkaEmailConsumer> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConsumer<string, string> _consumer;
-    private readonly IServiceProvider _serviceProvider;
     private readonly string _topic;
-    private readonly ILogger<KafkaEmailConsumer<TKey, TMessage>> _logger;
 
-    public KafkaEmailConsumer(IConfiguration config, ILogger<KafkaEmailConsumer<TKey, TMessage>> logger, IServiceProvider serviceProvider)
+    private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        _serviceProvider = serviceProvider;
+        PropertyNameCaseInsensitive = true
+    };
+
+    public KafkaEmailConsumer(IConfiguration config,
+                              ILogger<KafkaEmailConsumer> logger,
+                              IServiceScopeFactory scopeFactory)
+    {
         _logger = logger;
+        _scopeFactory = scopeFactory;
+
         _topic = config["Kafka:Topic"] ?? "email";
 
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka1:9092,kafka2:9092",
             GroupId = config["Kafka:GroupId"] ?? "ConsumerGroupA",
+            // Block & start from earliest if no committed offset
             AutoOffsetReset = Enum.TryParse(config["Kafka:AutoOffsetReset"], out AutoOffsetReset offset) ? offset : AutoOffsetReset.Earliest,
+            // We will commit manually after successful processing
             EnableAutoCommit = bool.TryParse(config["Kafka:EnableAutoCommit"], out var autoCommit) ? autoCommit : true,
             AutoCommitIntervalMs = int.TryParse(config["Kafka:AutoCommitIntervalMs"], out var commitInterval) ? commitInterval : 5000,
+            // Reasonable stability defaults
             SessionTimeoutMs = int.TryParse(config["Kafka:SessionTimeoutMs"], out var sessionTimeout) ? sessionTimeout : 30000,
             MaxPollIntervalMs = int.TryParse(config["Kafka:MaxPollIntervalMs"], out var maxPoll) ? maxPoll : 300000,
             ApiVersionRequestTimeoutMs = int.TryParse(config["Kafka:ApiVersionRequestTimeoutMs"], out var apiTimeout) ? apiTimeout : 10000,
+            // Improve broker/discovery behavior
             ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var backoff) ? backoff : 1000,
             ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var backoffMax) ? backoffMax : 10000
         };
 
-        _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
+        _consumer = new ConsumerBuilder<string, string>(consumerConfig)
+            .SetErrorHandler((_, e) =>
+            {
+                if (e.IsFatal)
+                    _logger.LogError("Fatal Kafka error: {Reason}", e.Reason);
+                else
+                    _logger.LogWarning("Kafka error: {Reason}", e.Reason);
+            })
+            .SetLogHandler((_, msg) =>
+            {
+                _logger.LogDebug("Kafka[{Name}] {Level}: {Message}", msg.Name, msg.Level, msg.Message);
+            })
+            .Build();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Consumer started for key type {KeyType} and message type {MessageType}",
-            typeof(TKey).Name, typeof(TMessage).Name);
-        try
-        {
-            _consumer.Subscribe(_topic);
-        }
+        _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topic);
+
+        try { _consumer.Subscribe(_topic); }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to subscribe to topic {Topic}. Kafka consumer will not start.");
-            return; // Exit the background service gracefully
+            _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topic);
+            return;
         }
 
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                ConsumeResult<string, string>? result = null;
+
                 try
                 {
-                    var result = _consumer.Consume(TimeSpan.FromMilliseconds(100));
-                    if (result != null)
+                    result = _consumer.Consume(stoppingToken);
+                    if (result == null) continue;
+
+
+                    var dto = ParsePayload(result.Message.Value);
+                    if (dto == null)
                     {
-                        // Deserialize key if present
-                        TKey? key = null;
-                        if (!string.IsNullOrEmpty(result.Message.Key))
-                        {
-                            // If TKey is string, return the raw string
-                            if (typeof(TKey) == typeof(string))
-                            {
-                                key = result.Message.Key as TKey;
-                            }
-                            else
-                            {
-                                key = JsonSerializer.Deserialize<TKey>(result.Message.Key);
-                            }
-                        }
+                        _logger.LogWarning("Skipping message at {TPO}: unable to parse payload.", result.TopicPartitionOffset);
 
-                        using var scope = _serviceProvider.CreateScope();
-                        var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-
-                        KafkaMessageRaw? raw = JsonSerializer.Deserialize<KafkaMessageRaw>(result.Message.Value);
-                        if (raw == null || string.IsNullOrEmpty(raw.Content))
-                        {
-                            _logger.LogWarning("Received null KafkaMessage or Content after deserialization. Skipping message.");
-                            continue;
-                        }
-
-                        NotificationRequestDto? content;
-                        try
-                        {
-                            content = JsonSerializer.Deserialize<NotificationRequestDto>(raw.Content);
-                            if (content is not null) 
-                            {
-                                var kafkaMessage = new KafkaMessage<NotificationRequestDto>
-                                {
-                                    Id = raw.Id.ToString(),
-                                    Content = content,
-                                    Timestamp = raw.Timestamp
-                                };
-
-                                await sender.SendAsync(kafkaMessage.Content, stoppingToken);
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to deserialize Content: {Content}", raw.Content);
-                            continue;
-                        }
+                        // Commit to avoid poison-pill loops (replace with DLQ publish + commit later)
+                        _consumer.Commit(result);
+                        continue;
                     }
+
+                    using var scope = _scopeFactory.CreateScope();
+                    var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+
+                    await sender.SendAsync(dto, stoppingToken);
+
+                    _consumer.Commit(result); // success
                 }
                 catch (ConsumeException ex)
                 {
-                    _logger.LogError(ex, "Error consuming message: {Reason}", ex.Error.Reason);
+                    _logger.LogError(ex, "ConsumeException at {TPO}: {Reason}",
+                        result?.TopicPartitionOffset, ex.Error.Reason);
                     await Task.Delay(1000, stoppingToken);
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "Error deserializing message");
+                    _logger.LogWarning(ex, "JSON error at {TPO}; committing to skip poison message.",
+                        result?.TopicPartitionOffset);
+                    if (result is not null) _consumer.Commit(result);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    // graceful shutdown
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled processing error at {TPO}. Backing off briefly.",
+                        result?.TopicPartitionOffset);
                     await Task.Delay(1000, stoppingToken);
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            // Normal shutdown
-        }
         finally
         {
-            _consumer.Close();
+            try { _consumer.Close(); } // leave group & commit last offsets
+            catch (Exception ex) { _logger.LogWarning(ex, "Error closing Kafka consumer."); }
         }
+    }
+
+    private static NotificationRequestDto? ParsePayload(string payload)
+    {
+        // 1) Envelope with typed Content
+        try
+        {
+            var env = JsonSerializer.Deserialize<KafkaMessage<NotificationRequestDto>>(payload, JsonOpts);
+            if (env?.Content is not null) return env.Content;
+        }
+        catch { /* fall through */ }
+
+        // 2) Envelope with string Content (legacy)
+        try
+        {
+            var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
+            if (!string.IsNullOrWhiteSpace(envRaw?.Content))
+                return JsonSerializer.Deserialize<NotificationRequestDto>(envRaw.Content, JsonOpts);
+        }
+        catch { /* fall through */ }
+
+        // 3) Bare DTO
+        try
+        {
+            return JsonSerializer.Deserialize<NotificationRequestDto>(payload, JsonOpts);
+        }
+        catch { }
+
+        return null;
     }
 
     public override void Dispose()

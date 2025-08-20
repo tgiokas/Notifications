@@ -1,77 +1,31 @@
-﻿using System.Text.Json;
-
+﻿// Application/Services/NotificationPublisher.cs
 using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
-using Notifications.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Notifications.Application.Services;
 
 public class NotificationPublisher : INotificationPublisher
 {
-    private readonly IKafkaPublisher<string, string> _kafkaPublisher;
-    private readonly INotificationRepository _notificationRepository;
+    private readonly IReadOnlyDictionary<string, INotificationChannelPublisher> _byChannel;
+    private readonly ILogger<NotificationPublisher> _logger;
 
-    public NotificationPublisher(
-        IKafkaPublisher<string, string> kafkaPublisher,
-        INotificationRepository notificationRepository)
+    public NotificationPublisher(IEnumerable<INotificationChannelPublisher> strategies,
+                                 ILogger<NotificationPublisher> logger)
     {
-        _kafkaPublisher = kafkaPublisher;
-        _notificationRepository = notificationRepository;
+        _byChannel = strategies.ToDictionary(s => s.Channel, StringComparer.OrdinalIgnoreCase);
+        _logger = logger;
     }
 
-    public async Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default)
+    public Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default)
     {
-        // Create domain entity and save it with Pending status  
-        //var notification = new Notification  
-        //{  
-        //    Id = Guid.NewGuid(),  
-        //    Recipient = request.Recipient,  
-        //    Subject = request.Subject,  
-        //    Message = request.Message,  
-        //    Channel = request.Channel,  
-        //    Status = NotificationStatus.Pending.ToString(),  
-        //    CreatedAt = DateTime.UtcNow  
-        //};  
+        if (request is null) throw new ArgumentNullException(nameof(request));
+        if (string.IsNullOrWhiteSpace(request.Channel))
+            throw new ArgumentException("Channel is required", nameof(request));
 
-        //await _notificationRepository.AddAsync(notification);  
+        if (!_byChannel.TryGetValue(request.Channel.Trim(), out var strategy))
+            throw new ArgumentOutOfRangeException(nameof(request.Channel), $"Unsupported channel '{request.Channel}'.");
 
-        // Determine topic based on channel  
-        var topic = request.Channel.ToLower() switch
-        {
-            "email" => "email",
-            "sms" => "sms",
-            _ => throw new ArgumentOutOfRangeException(nameof(request.Channel), $"Unsupported channel: {request.Channel}")
-        };
-
-        var message = JsonSerializer.Serialize(request);
-
-        try
-        {
-            // Instantiation of KafkaMessage  
-            var kafkaMessage = new KafkaMessage<string>
-            {
-                Id = Guid.NewGuid().ToString(),
-                Content = message,
-                Timestamp = DateTime.UtcNow
-            };
-
-            // Publish to Kafka topic  
-            await _kafkaPublisher.PublishMessageAsync(topic, "testkey2", kafkaMessage, cancellationToken);
-
-
-            // Update the entity as Sent after successful publish  
-            //notification.Status = NotificationStatus.Sent.ToString();  
-            //notification.SentAt = DateTime.UtcNow;  
-
-            //await _notificationRepository.UpdateAsync(notification);  
-        }
-        catch (Exception)
-        {
-            // You could also update status to Failed here or implement retry logic  
-            //notification.Status = NotificationStatus.Failed.ToString();  
-            //await _notificationRepository.UpdateAsync(notification);  
-
-            throw;
-        }
+        return strategy.PublishAsync(request, cancellationToken);
     }
 }

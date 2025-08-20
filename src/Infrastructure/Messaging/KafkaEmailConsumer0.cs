@@ -11,16 +11,16 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class KafkaEmailConsumer<TKey, TMessage> : BackgroundService
+public class KafkaEmailConsumer0<TKey, TMessage> : BackgroundService
     where TKey : class
     where TMessage : class
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceProvider _serviceProvider;
     private readonly string _topic;
-    private readonly ILogger<KafkaEmailConsumer<TKey, TMessage>> _logger;
+    private readonly ILogger<KafkaEmailConsumer0<TKey, TMessage>> _logger;
 
-    public KafkaEmailConsumer(IConfiguration config, ILogger<KafkaEmailConsumer<TKey, TMessage>> logger, IServiceProvider serviceProvider)
+    public KafkaEmailConsumer0(IConfiguration config, ILogger<KafkaEmailConsumer0<TKey, TMessage>> logger, IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;

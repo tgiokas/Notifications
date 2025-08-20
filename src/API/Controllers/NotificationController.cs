@@ -22,7 +22,7 @@ public class NotificationController : ControllerBase
     [HttpGet("ping")]
     public IActionResult Ping() => Ok("pong");
 
-    [HttpPost("Send")]
+    [HttpPost("SendMessage")]
     public async Task<IActionResult> SendMessage(KafkaMessage<NotificationRequestDto> message, CancellationToken cancellationToken)
     {
         try

@@ -3,6 +3,7 @@ using Notifications.Infrastructure.Configuration;
 using Notifications.Infrastructure.Messaging;
 using Notifications.Application.Interfaces;
 using Notifications.Application.Services;
+using Notifications.Application.Services.Channels;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,28 +22,23 @@ var builder = WebApplication.CreateBuilder(args);
 // Register Database Context
 builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 
-//builder.Services.AddDbContext<ApplicationDbContext>(options =>
-//    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 // Configuration binding
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
 
 
 // Register of KafkaPublisher and IKafkaPublisher
-builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisher<string, string>>();
-
-builder.Services.AddSingleton<KafkaPublisher0<string, string>>();
-//builder.Services.AddSingleton<KafkaEmailPublisher1>();
-//builder.Services.AddSingleton<IKafkaPublisher<string, NotificationRequestDto>, KafkaPublisher<string, NotificationRequestDto>>();
-
-
-//builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisherImplementation>();
-
+//builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisher1<string, string>>();
 
 // Register of KafkaConsumer
-builder.Services.AddHostedService<KafkaEmailConsumer<string, string>>();
-//builder.Services.AddHostedService<KafkaEmailConsumer1>();
+//builder.Services.AddHostedService<KafkaEmailConsumer1<string, string>>();
+builder.Services.AddHostedService<KafkaEmailConsumer>();
+
+// Infra publisher (singleton, reused)
+builder.Services.AddSingleton<IMessagePublisher, KafkaPublisher>();
+
+// Channel strategies
+builder.Services.AddScoped<INotificationChannelPublisher, EmailChannelPublisher>();
 
 // Application layer
 builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();

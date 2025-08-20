@@ -1,111 +1,75 @@
-﻿using System.Text.Json;
+﻿// Notifications.Infrastructure/Messaging/KafkaPublisher.cs
+using System.Text.Json;
+using Confluent.Kafka;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
-using Confluent.Kafka;
-
-using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
-public class KafkaPublisher<TKey, TMessage> : IKafkaPublisher<TKey, TMessage>, IDisposable
-  where TMessage : class
-  where TKey : class
+public sealed class KafkaPublisher : IMessagePublisher, IDisposable
 {
     private readonly IProducer<string, string> _producer;
-    private readonly ILogger<KafkaPublisher<TKey, TMessage>> _logger;
+    private readonly ILogger<KafkaPublisher> _logger;
 
-    public KafkaPublisher(IConfiguration config, ILogger<KafkaPublisher<TKey, TMessage>> logger)
+    public KafkaPublisher(IConfiguration config, ILogger<KafkaPublisher> logger)
     {
         _logger = logger;
-        //_topic = config["Kafka:Topic"] ?? "DefaultTopic";
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = config["Kafka:BootstrapServers"],
-
-            // Critical settings for better failover handling    
-            Acks = Enum.Parse<Acks>(config["Kafka:Acks"] ?? "Leader"),
-
-            // Improve broker discovery and failover    
-            SocketConnectionSetupTimeoutMs = int.TryParse(config["Kafka:SocketConnectionSetupTimeoutMs"], out var socketConnectionSetupTimeoutMs) ? socketConnectionSetupTimeoutMs : 10000,
-            SocketTimeoutMs = int.TryParse(config["Kafka:SocketTimeoutMs"], out var socketTimeoutMs) ? socketTimeoutMs : 5000,
-
-            // Retry settings    
-            MessageSendMaxRetries = int.TryParse(config["Kafka:MessageSendMaxRetries"], out var messageSendMaxRetries) ? messageSendMaxRetries : 5,
-            RetryBackoffMs = int.TryParse(config["Kafka:RetryBackoffMs"], out var retryBackoffMs) ? retryBackoffMs : 100,
-            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var reconnectBackoffMs) ? reconnectBackoffMs : 50,
-            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var reconnectBackoffMaxMs) ? reconnectBackoffMaxMs : 5000,
-
-            // Reasonable timeouts    
-            RequestTimeoutMs = int.TryParse(config["Kafka:RequestTimeoutMs"], out var requestTimeoutMs) ? requestTimeoutMs : 5000,
-            MessageTimeoutMs = int.TryParse(config["Kafka:MessageTimeoutMs"], out var messageTimeoutMs) ? messageTimeoutMs : 15000
+            BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka:9092",
+            Acks = Enum.TryParse(config["Kafka:Acks"], out Acks acks) ? acks : Acks.All,
+            RequestTimeoutMs = int.TryParse(config["Kafka:RequestTimeoutMs"], out var rt) ? rt : 5000,
+            MessageTimeoutMs = int.TryParse(config["Kafka:MessageTimeoutMs"], out var mt) ? mt : 15000,
+            MessageSendMaxRetries = int.TryParse(config["Kafka:MessageSendMaxRetries"], out var mr) ? mr : 5,
+            RetryBackoffMs = int.TryParse(config["Kafka:RetryBackoffMs"], out var rb) ? rb : 100,
+            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var rcb) ? rcb : 50,
+            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var rcbm) ? rcbm : 5000
         };
-
-        _logger.LogInformation("Configuring Kafka producer with servers: {servers}",
-            producerConfig.BootstrapServers);
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
     }
 
-    public async Task PublishMessageAsync(string topic, TKey? key, KafkaMessage<TMessage> message, CancellationToken cancellationToken = default)
+    public async Task PublishJsonAsync<T>(
+        string route,
+        string key,
+        T payload,
+        IEnumerable<KeyValuePair<string, string>>? headers = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            string? serializedKey = key != null ? SerializeKey(key) : null;
-            string serializedMessage = JsonSerializer.Serialize(message);
+            var json = JsonSerializer.Serialize(payload);
 
-            _logger.LogDebug("Attempting to send message {id} to topic {topic}",
-                message.Id, topic);
+            var msg = new Message<string, string>
+            {
+                Key = key ?? string.Empty,
+                Value = json,
+                Headers = new Headers()
+            };
 
-            var result = await _producer.ProduceAsync(topic,
-                new Message<string, string>
-                {
-                    Key = serializedKey ?? string.Empty,
-                    Value = serializedMessage
-                },
-                cancellationToken
-             );
+            if (headers is not null)
+            {
+                foreach (var h in headers)
+                    msg.Headers!.Add(h.Key, System.Text.Encoding.UTF8.GetBytes(h.Value));
+            }
 
-            _logger.LogInformation("Message sent: {MessageId} to {TopicPartitionOffset}",
-                message.Id, result.TopicPartitionOffset);
-
-            //return result;
+            var result = await _producer.ProduceAsync(route, msg, cancellationToken);
+            // Do infra-level logging/metrics here if you need
+            _logger.LogDebug("Produced to {TP} (offset {Offset})", result.TopicPartition, result.Offset);
         }
         catch (ProduceException<string, string> ex)
         {
-            _logger.LogError(ex, "Error producing message {id}: {Reason}",
-                message.Id, ex.Error.Reason);
+            _logger.LogError(ex, "Kafka produce error: {Reason}", ex.Error.Reason);
             throw;
         }
     }
 
-    private string SerializeKey(TKey key)
-    {
-        return key switch
-        {
-            string str => str,
-            int i => i.ToString(),
-            long l => l.ToString(),
-            Guid guid => guid.ToString(),
-            _ => JsonSerializer.Serialize(key)
-        };
-    }
-
     public void Dispose()
     {
-        try
-        {
-            _producer.Flush(TimeSpan.FromSeconds(5));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error flushing producer on dispose");
-        }
-        finally
-        {
-            _producer.Dispose();
-        }
+        try { _producer.Flush(TimeSpan.FromSeconds(5)); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Error flushing Kafka producer during dispose"); }
+        finally { _producer.Dispose(); }
     }
 }
