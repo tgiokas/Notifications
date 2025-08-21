@@ -1,5 +1,4 @@
-﻿// Application/Services/Channels/EmailChannelPublisher.cs
-using Notifications.Application.DTOs;
+﻿using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 

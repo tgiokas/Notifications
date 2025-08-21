@@ -41,7 +41,7 @@ builder.Services.AddSingleton<IMessagePublisher, KafkaPublisher>();
 builder.Services.AddScoped<INotificationChannelPublisher, EmailChannelPublisher>();
 
 // Application layer
-builder.Services.AddScoped<INotificationPublisher, NotificationPublisher>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 
 builder.Services.AddControllers();

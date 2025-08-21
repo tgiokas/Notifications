@@ -1,17 +1,16 @@
-﻿// Application/Services/NotificationPublisher.cs
-using Notifications.Application.DTOs;
+﻿using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Notifications.Application.Services;
 
-public class NotificationPublisher : INotificationPublisher
+public class NotificationDispatcher : INotificationDispatcher
 {
     private readonly IReadOnlyDictionary<string, INotificationChannelPublisher> _byChannel;
-    private readonly ILogger<NotificationPublisher> _logger;
+    private readonly ILogger<NotificationDispatcher> _logger;
 
-    public NotificationPublisher(IEnumerable<INotificationChannelPublisher> strategies,
-                                 ILogger<NotificationPublisher> logger)
+    public NotificationDispatcher(IEnumerable<INotificationChannelPublisher> strategies,
+                                 ILogger<NotificationDispatcher> logger)
     {
         _byChannel = strategies.ToDictionary(s => s.Channel, StringComparer.OrdinalIgnoreCase);
         _logger = logger;

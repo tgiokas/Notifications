@@ -1,8 +1,7 @@
-﻿// Notifications.Infrastructure/Messaging/KafkaPublisher.cs
-using System.Text.Json;
-using Confluent.Kafka;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Confluent.Kafka;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
@@ -19,13 +18,23 @@ public sealed class KafkaPublisher : IMessagePublisher, IDisposable
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka:9092",
-            Acks = Enum.TryParse(config["Kafka:Acks"], out Acks acks) ? acks : Acks.All,
-            RequestTimeoutMs = int.TryParse(config["Kafka:RequestTimeoutMs"], out var rt) ? rt : 5000,
-            MessageTimeoutMs = int.TryParse(config["Kafka:MessageTimeoutMs"], out var mt) ? mt : 15000,
-            MessageSendMaxRetries = int.TryParse(config["Kafka:MessageSendMaxRetries"], out var mr) ? mr : 5,
-            RetryBackoffMs = int.TryParse(config["Kafka:RetryBackoffMs"], out var rb) ? rb : 100,
-            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var rcb) ? rcb : 50,
-            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var rcbm) ? rcbm : 5000
+
+            // Critical settings for better failover handling    
+            Acks = Enum.Parse<Acks>(config["Kafka:Acks"] ?? "Leader"),
+
+            // Improve broker discovery and failover    
+            SocketConnectionSetupTimeoutMs = int.TryParse(config["Kafka:SocketConnectionSetupTimeoutMs"], out var socketConnectionSetupTimeoutMs) ? socketConnectionSetupTimeoutMs : 10000,
+            SocketTimeoutMs = int.TryParse(config["Kafka:SocketTimeoutMs"], out var socketTimeoutMs) ? socketTimeoutMs : 5000,
+
+            // Retry settings    
+            MessageSendMaxRetries = int.TryParse(config["Kafka:MessageSendMaxRetries"], out var messageSendMaxRetries) ? messageSendMaxRetries : 5,
+            RetryBackoffMs = int.TryParse(config["Kafka:RetryBackoffMs"], out var retryBackoffMs) ? retryBackoffMs : 100,
+            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var reconnectBackoffMs) ? reconnectBackoffMs : 50,
+            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var reconnectBackoffMaxMs) ? reconnectBackoffMaxMs : 5000,
+
+            // Reasonable timeouts    
+            RequestTimeoutMs = int.TryParse(config["Kafka:RequestTimeoutMs"], out var requestTimeoutMs) ? requestTimeoutMs : 5000,
+            MessageTimeoutMs = int.TryParse(config["Kafka:MessageTimeoutMs"], out var messageTimeoutMs) ? messageTimeoutMs : 15000
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();

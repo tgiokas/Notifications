@@ -9,11 +9,11 @@ namespace Notifications.WebAPI.Controllers;
 [Route("[controller]")]
 public class NotificationController : ControllerBase
 {
-    private readonly INotificationPublisher _publisher;
+    private readonly INotificationDispatcher _publisher;
 
     private readonly ILogger<NotificationController> _logger;
 
-    public NotificationController(INotificationPublisher publisher, ILogger<NotificationController> logger)
+    public NotificationController(INotificationDispatcher publisher, ILogger<NotificationController> logger)
     {
         _publisher = publisher;
         _logger = logger;

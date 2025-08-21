@@ -2,7 +2,7 @@
 
 namespace Notifications.Application.Interfaces;
 
-public interface INotificationPublisher
+public interface INotificationDispatcher
 {
     Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default);
 }
