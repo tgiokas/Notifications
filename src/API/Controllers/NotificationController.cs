@@ -19,9 +19,6 @@ public class NotificationController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet("ping")]
-    public IActionResult Ping() => Ok("pong");
-
     [HttpPost("SendMessage")]
     public async Task<IActionResult> SendMessage(KafkaMessage<NotificationRequestDto> message, CancellationToken cancellationToken)
     {
@@ -32,7 +29,7 @@ public class NotificationController : ControllerBase
                 return BadRequest("Message content is required.");
             }
 
-            await _publisher.PublishAsync(message.Content, cancellationToken);
+            await _publisher.DispatchAsync(message.Content, cancellationToken);
             return Accepted(); 
         }
         catch (Exception ex)
@@ -52,7 +49,7 @@ public class NotificationController : ControllerBase
                 return BadRequest("Message content is required.");
             }
 
-            await _publisher.PublishAsync(message, cancellationToken);
+            await _publisher.DispatchAsync(message, cancellationToken);
             return Accepted();
         }
         catch (Exception ex)

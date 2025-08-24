@@ -1,22 +1,18 @@
 ﻿using Notifications.Application.DTOs;
 using Notifications.Application.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace Notifications.Application.Services;
 
 public class NotificationDispatcher : INotificationDispatcher
 {
     private readonly IReadOnlyDictionary<string, INotificationChannelPublisher> _byChannel;
-    private readonly ILogger<NotificationDispatcher> _logger;
 
-    public NotificationDispatcher(IEnumerable<INotificationChannelPublisher> strategies,
-                                 ILogger<NotificationDispatcher> logger)
+    public NotificationDispatcher(IEnumerable<INotificationChannelPublisher> strategies)
     {
         _byChannel = strategies.ToDictionary(s => s.Channel, StringComparer.OrdinalIgnoreCase);
-        _logger = logger;
     }
 
-    public Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default)
+    public Task DispatchAsync(NotificationRequestDto request, CancellationToken cancellationToken = default)
     {
         if (request is null) throw new ArgumentNullException(nameof(request));
         if (string.IsNullOrWhiteSpace(request.Channel))

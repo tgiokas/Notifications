@@ -4,5 +4,5 @@ namespace Notifications.Application.Interfaces;
 
 public interface INotificationDispatcher
 {
-    Task PublishAsync(NotificationRequestDto request, CancellationToken cancellationToken = default);
+    Task DispatchAsync(NotificationRequestDto request, CancellationToken cancellationToken = default);
 }

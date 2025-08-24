@@ -86,7 +86,6 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     result = _consumer.Consume(stoppingToken);
                     if (result == null) continue;
 
-
                     var dto = ParsePayload(result.Message.Value);
                     if (dto == null)
                     {
