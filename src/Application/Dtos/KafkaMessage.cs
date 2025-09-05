@@ -1,4 +1,4 @@
-﻿namespace Notifications.Application.DTOs;
+﻿namespace Notifications.Application.Dtos;
 
 public class KafkaMessage<TMessage> where TMessage : class
 {

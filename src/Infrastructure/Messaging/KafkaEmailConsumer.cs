@@ -1,11 +1,12 @@
-﻿using System.Text;
-using System.Text.Json;
-using Confluent.Kafka;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Notifications.Application.DTOs;
+
+using Confluent.Kafka;
+
+using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
@@ -37,8 +38,8 @@ public sealed class KafkaEmailConsumer : BackgroundService
             GroupId = config["Kafka:GroupId"] ?? "ConsumerGroupA",
             // Block & start from earliest if no committed offset
             AutoOffsetReset = Enum.TryParse(config["Kafka:AutoOffsetReset"], out AutoOffsetReset offset) ? offset : AutoOffsetReset.Earliest,
-            // We will commit manually after successful processing
-            EnableAutoCommit = bool.TryParse(config["Kafka:EnableAutoCommit"], out var autoCommit) ? autoCommit : true,
+            // commit manually after successful processing
+            EnableAutoCommit = false,
             AutoCommitIntervalMs = int.TryParse(config["Kafka:AutoCommitIntervalMs"], out var commitInterval) ? commitInterval : 5000,
             // Reasonable stability defaults
             SessionTimeoutMs = int.TryParse(config["Kafka:SessionTimeoutMs"], out var sessionTimeout) ? sessionTimeout : 30000,
@@ -91,7 +92,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     {
                         _logger.LogWarning("Skipping message at {TPO}: unable to parse payload.", result.TopicPartitionOffset);
 
-                        // Commit to avoid poison-pill loops (replace with DLQ publish + commit later)
+                        // Commit to avoid  loops (replace with DLQ publish + commit later)
                         _consumer.Commit(result);
                         continue;
                     }
@@ -117,7 +118,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
-                    // graceful shutdown
+                    // normal shutdown
                 }
                 catch (Exception ex)
                 {

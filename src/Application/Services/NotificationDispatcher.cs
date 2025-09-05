@@ -1,4 +1,4 @@
-﻿using Notifications.Application.DTOs;
+﻿using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Application.Services;

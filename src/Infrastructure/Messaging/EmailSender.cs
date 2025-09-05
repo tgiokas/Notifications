@@ -3,7 +3,7 @@ using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using Notifications.Application.DTOs;
+using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 using Notifications.Infrastructure.Configuration;
 
