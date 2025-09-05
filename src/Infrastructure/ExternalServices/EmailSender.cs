@@ -2,12 +2,11 @@
 using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 using Notifications.Infrastructure.Configuration;
 
-namespace Notifications.Infrastructure.Messaging;
+namespace Notifications.Infrastructure.ExternalServices;
 
 public class EmailSender : IEmailSender
 {

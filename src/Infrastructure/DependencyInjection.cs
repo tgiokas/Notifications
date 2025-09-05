@@ -1,13 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 using Notifications.Application.Interfaces;
-using Notifications.Infrastructure.Persistence;
 using Notifications.Domain.Interfaces;
 using Notifications.Infrastructure.Repositories;
-
+using Notifications.Infrastructure.Database;
 
 namespace Microsoft.Extensions.DependencyInjection;
 

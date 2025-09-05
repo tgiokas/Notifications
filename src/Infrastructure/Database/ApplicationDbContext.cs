@@ -3,7 +3,7 @@
 using Notifications.Domain.Entities;
 using Notifications.Application.Interfaces;
 
-namespace Notifications.Infrastructure.Persistence;
+namespace Notifications.Infrastructure.Database;
 
 public class ApplicationDbContext : DbContext, IApplicationDbContext
 {

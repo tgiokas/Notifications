@@ -1,7 +1,6 @@
-﻿
-using Notifications.Infrastructure.Persistence;
-using Notifications.Domain.Interfaces;
+﻿using Notifications.Domain.Interfaces;
 using Notifications.Domain.Entities;
+using Notifications.Infrastructure.Database;
 
 namespace Notifications.Infrastructure.Repositories;
 

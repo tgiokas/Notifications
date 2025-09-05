@@ -1,9 +1,10 @@
-using Notifications.Infrastructure.Persistence;
+using Notifications.Infrastructure.Database;
 using Notifications.Infrastructure.Configuration;
 using Notifications.Infrastructure.Messaging;
 using Notifications.Application.Interfaces;
 using Notifications.Application.Services;
 using Notifications.Application.Services.Channels;
+using Notifications.Infrastructure.ExternalServices;
 
 
 var builder = WebApplication.CreateBuilder(args);
