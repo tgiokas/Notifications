@@ -2,8 +2,8 @@
   "profiles": {
     "http": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "launchUrl": "swagger",
+      "launchBrowser": false,
+      "launchUrl": "webapi",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

@@ -9,12 +9,12 @@ using Notifications.Infrastructure.ExternalServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//builder.Host.ConfigureHostOptions(o =>
-//{
-//    // Make sure an unexpected exception in a BackgroundService
-//    // doesn't bring the whole host down.
-//    o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
-//});
+builder.Host.ConfigureHostOptions(o =>
+{
+    // Make sure an unexpected exception in a BackgroundService
+    // doesn't bring the whole host down.
+    o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
 
 
 // Add services to the container.
@@ -25,7 +25,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 
 // Configuration binding
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
-builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
+//builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
 
 
 // Register of KafkaPublisher and IKafkaPublisher
@@ -50,21 +50,21 @@ builder.Services.AddControllers();
 //builder.Services.AddSwaggerGen();
 
 // Add CORS policy
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CorsPolicy", policyBuilder =>
-    {
-        policyBuilder.AllowAnyOrigin();
-        policyBuilder.AllowAnyMethod();
-        policyBuilder.AllowAnyHeader();
-    });
-});
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("CorsPolicy", policyBuilder =>
+//    {
+//        policyBuilder.AllowAnyOrigin();
+//        policyBuilder.AllowAnyMethod();
+//        policyBuilder.AllowAnyHeader();
+//    });
+//});
 
-builder.WebHost.UseUrls("http://0.0.0.0:80");
+//builder.WebHost.UseUrls("http://0.0.0.0:80");
 
 var app = builder.Build();
 
-app.UseCors("CorsPolicy");
+//app.UseCors("CorsPolicy");
 
 if (app.Environment.IsDevelopment())
 {
