@@ -1,7 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Notifications.Domain.Entities;
-
-namespace Notifications.Application.Interfaces;
+﻿namespace Notifications.Application.Interfaces;
 
 public interface IApplicationDbContext
 {
