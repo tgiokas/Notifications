@@ -8,12 +8,4 @@
 	  <AssemblyName>Notifications..Domain</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Interfaces\IUserRepository.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Interfaces\" />
-  </ItemGroup>
-
 </Project>

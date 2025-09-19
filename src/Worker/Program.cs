@@ -31,7 +31,6 @@ builder.Services.AddHostedService<KafkaEmailConsumer>();
 // Application layer
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 
-
 IHost host = builder.Build();
 
 logger.LogInformation("Services configured. Notifications.Worker is running...");

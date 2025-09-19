@@ -10,9 +10,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Notifications.Application", "src\Application\Notifications.Application.csproj", "{70C1ACA9-EC3B-4883-B17E-E34FE72AB898}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0581EC4C-FD1A-4D58-B92A-DA2FF2A44FD7}"
-	ProjectSection(SolutionItems) = preProject
-		README.md = README.md
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7AEB5C06-A0DF-483B-AA72-2E8770442FE6}"
 EndProject

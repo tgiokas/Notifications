@@ -17,12 +17,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="KeycloakClient3.cs" />
-    <Compile Remove="Repositories\RoleRepository.cs" />
-    <Compile Remove="Repositories\UserRepository.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="2.11.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.9">
       <TreatAsUsed>true</TreatAsUsed>
@@ -43,10 +37,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Application\Notifications.Application.csproj" />
     <ProjectReference Include="..\Domain\Notifications.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Repositories\" />
   </ItemGroup>
 
 </Project>
