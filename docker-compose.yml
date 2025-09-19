@@ -85,11 +85,11 @@ services:
     restart: always
 
 
-  notifications.webapi:
-    container_name: notifications-api
+  notifications.worker:
+    container_name: notifications-worker
     build:
         context: .
-        dockerfile: src/API/Dockerfile   
+        dockerfile: src/Worker/Dockerfile   
     environment:
         # .NET environment
         ASPNETCORE_ENVIRONMENT: "Development"

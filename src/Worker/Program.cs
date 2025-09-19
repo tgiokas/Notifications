@@ -1,9 +1,7 @@
-using Microsoft.Extensions.Logging;
-
-using Notifications.Infrastructure.Configuration;
-using Notifications.Infrastructure.Messaging;
 using Notifications.Application.Interfaces;
+using Notifications.Infrastructure.Configuration;
 using Notifications.Infrastructure.ExternalServices;
+using Notifications.Infrastructure.Messaging;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -22,7 +20,6 @@ var logger = LoggerFactory.Create(logging =>
 }).CreateLogger("Startup");
 
 logger.LogInformation("Starting Notifications.Worker...");
-
 
 // Infrastructure (DB, Kafka config, etc.)
 builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
