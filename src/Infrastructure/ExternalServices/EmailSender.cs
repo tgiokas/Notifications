@@ -28,7 +28,7 @@ public class EmailSender : IEmailSender
             {                
                 Credentials = new NetworkCredential(_settings.Username, _settings.Password),
                 UseDefaultCredentials = true,
-                //EnableSsl = _settings.UseSsl,
+                EnableSsl = _settings.UseSsl,
             };
 
             var message = new MailMessage
