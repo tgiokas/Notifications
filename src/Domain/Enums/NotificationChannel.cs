@@ -2,7 +2,7 @@
 
 public enum NotificationChannel
 {
-    Email = 0,
-    Sms = 1,
-    WebPush = 2
+    Email = 1,
+    Sms = 2,
+    WebPush = 3
 }

@@ -9,7 +9,7 @@ using Notifications.Infrastructure.Database;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-public static class DependencyInjection
+public static class InfrastructureServiceRegistration
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, string databaseProvider)
     {

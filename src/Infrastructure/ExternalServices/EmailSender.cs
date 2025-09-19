@@ -25,9 +25,10 @@ public class EmailSender : IEmailSender
         try
         {
             using var client = new SmtpClient(_settings.Host, _settings.Port)
-            {
-                EnableSsl = _settings.UseSsl,
-                Credentials = new NetworkCredential(_settings.Username, _settings.Password)
+            {                
+                Credentials = new NetworkCredential(_settings.Username, _settings.Password),
+                UseDefaultCredentials = true,
+                //EnableSsl = _settings.UseSsl,
             };
 
             var message = new MailMessage
@@ -37,7 +38,7 @@ public class EmailSender : IEmailSender
                 Body = dto.Message,
                 IsBodyHtml = true
             };
-            message.To.Add(dto.Recipient);
+            message.To.Add(new MailAddress(dto.Recipient));
 
             await client.SendMailAsync(message, cancellationToken);
 
