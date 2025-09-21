@@ -4,8 +4,8 @@ using Microsoft.Extensions.Configuration;
 
 using Notifications.Application.Interfaces;
 using Notifications.Domain.Interfaces;
-using Notifications.Infrastructure.Repositories;
 using Notifications.Infrastructure.Database;
+using Notifications.Infrastructure.Repositories;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -40,7 +40,6 @@ public static class InfrastructureServiceRegistration
 
         services.AddScoped<IApplicationDbContext, ApplicationDbContext>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
-
         return services;
     }
 }

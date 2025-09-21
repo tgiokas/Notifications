@@ -69,7 +69,10 @@ public sealed class KafkaEmailConsumer : BackgroundService
     {
         _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topic);
 
-        try { _consumer.Subscribe(_topic); }
+        try 
+        {
+            _consumer.Subscribe(_topic); 
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topic);
