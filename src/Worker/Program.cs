@@ -21,9 +21,10 @@ var logger = LoggerFactory.Create(logging =>
 
 logger.LogInformation("Starting Notifications.Worker...");
 
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+
 // Infrastructure (DB, Kafka config, etc.)
 builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
 // Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
