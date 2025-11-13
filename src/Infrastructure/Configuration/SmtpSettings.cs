@@ -2,10 +2,10 @@
 
 public class SmtpSettings
 {
-    public string Host { get; set; } = default!;
-    public int Port { get; set; } = default!;
-    public string Username { get; set; } = default!;
-    public string Password { get; set; } = default!;
-    public string From { get; set; } = default!;
-    public bool UseSsl { get; set; } = true;
+    public string Host { get; set; } = string.Empty;
+    public int Port { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string From { get; set; } = string.Empty;
+    public bool UseSsl { get; set; }
 }

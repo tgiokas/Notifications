@@ -1,4 +1,5 @@
 using Notifications.Application.Interfaces;
+using Notifications.Application.Services;
 using Notifications.Infrastructure.Configuration;
 using Notifications.Infrastructure.ExternalServices;
 using Notifications.Infrastructure.Messaging;
@@ -29,8 +30,8 @@ builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 // Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
 
-// Application layer
 builder.Services.AddScoped<IEmailSender, EmailSender>();
+builder.Services.AddScoped<ITemplateService, TemplateService>();
 
 IHost host = builder.Build();
 

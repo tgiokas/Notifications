@@ -8,6 +8,7 @@ using Confluent.Kafka;
 
 using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
+using Notifications.Domain.Enums;
 
 namespace Notifications.Infrastructure.Messaging;
 
@@ -16,7 +17,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
     private readonly ILogger<KafkaEmailConsumer> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConsumer<string, string> _consumer;
-    private readonly string _topic;
+    private readonly string[] _topics;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -30,11 +31,13 @@ public sealed class KafkaEmailConsumer : BackgroundService
         _logger = logger;
         _scopeFactory = scopeFactory;
 
-        _topic = config["Kafka:Topic"] ?? "email";
+        _topics = config.GetSection("Kafka:Topics").Get<string[]>()
+           ?? (config["Kafka:Topic"] ?? "email")
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka1:9092,kafka2:9092",
+            BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka1:9092",
             GroupId = config["Kafka:GroupId"] ?? "ConsumerGroupA",
             // Block & start from earliest if no committed offset
             AutoOffsetReset = Enum.TryParse(config["Kafka:AutoOffsetReset"], out AutoOffsetReset offset) ? offset : AutoOffsetReset.Earliest,
@@ -47,7 +50,9 @@ public sealed class KafkaEmailConsumer : BackgroundService
             ApiVersionRequestTimeoutMs = int.TryParse(config["Kafka:ApiVersionRequestTimeoutMs"], out var apiTimeout) ? apiTimeout : 10000,
             // Improve broker/discovery behavior
             ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var backoff) ? backoff : 1000,
-            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var backoffMax) ? backoffMax : 10000
+            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var backoffMax) ? backoffMax : 10000,
+
+            //EnableAutoOffsetStore = false
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig)
@@ -67,15 +72,15 @@ public sealed class KafkaEmailConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topic);
+        _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topics);
 
         try 
         {
-            _consumer.Subscribe(_topic); 
+            _consumer.Subscribe(_topics); 
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topic);
+            _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topics);
             return;
         }
 
@@ -95,7 +100,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     {
                         _logger.LogWarning("Skipping message at {TPO}: unable to parse payload.", result.TopicPartitionOffset);
 
-                        // Commit to avoid  loops (replace with DLQ publish + commit later)
+                        // Commit to avoid  loops
                         _consumer.Commit(result);
                         continue;
                     }
@@ -103,7 +108,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     using var scope = _scopeFactory.CreateScope();
                     var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
-                    await sender.SendAsync(dto, stoppingToken);
+                    await sender.SendAsync(dto, dto., stoppingToken);
 
                     _consumer.Commit(result); // success
                 }
@@ -138,29 +143,29 @@ public sealed class KafkaEmailConsumer : BackgroundService
         }
     }
 
-    private static NotificationRequestDto? ParsePayload(string payload)
+    private static NotificationDto? ParsePayload(string payload)
     {
         // 1) Envelope with typed Content
         try
         {
-            var env = JsonSerializer.Deserialize<KafkaMessage<NotificationRequestDto>>(payload, JsonOpts);
+            var env = JsonSerializer.Deserialize<KafkaMessage<NotificationDto>>(payload, JsonOpts);
             if (env?.Content is not null) return env.Content;
         }
         catch { /* fall through */ }
 
-        // 2) Envelope with string Content (legacy)
+        // 2) Envelope with string Content
         try
         {
             var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
             if (!string.IsNullOrWhiteSpace(envRaw?.Content))
-                return JsonSerializer.Deserialize<NotificationRequestDto>(envRaw.Content, JsonOpts);
+                return JsonSerializer.Deserialize<NotificationDto>(envRaw.Content, JsonOpts);
         }
         catch { /* fall through */ }
 
         // 3) Bare DTO
         try
         {
-            return JsonSerializer.Deserialize<NotificationRequestDto>(payload, JsonOpts);
+            return JsonSerializer.Deserialize<NotificationDto>(payload, JsonOpts);
         }
         catch { }
 

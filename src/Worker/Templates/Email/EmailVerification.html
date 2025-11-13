@@ -1,0 +1,40 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+
+        .header {
+            background: #0078D4;
+            color: white;
+            padding: 12px;
+        }
+
+        .content {
+            margin: 20px;
+        }
+
+        .button {
+            background: #0078D4;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Account Verification</h2>
+    </div>
+    <div class="content">
+        <p>Hello {{Username}},</p>
+        <p>Please verify your account by clicking below:</p>
+        <a href="{{VerificationLink}}" class="button">Verify Account</a>
+    </div>
+</body>
+</html>
