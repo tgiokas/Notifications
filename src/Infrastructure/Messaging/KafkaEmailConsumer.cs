@@ -38,21 +38,30 @@ public sealed class KafkaEmailConsumer : BackgroundService
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = config["Kafka:BootstrapServers"] ?? "kafka1:9092",
-            GroupId = config["Kafka:GroupId"] ?? "ConsumerGroupA",
+
+            // Base delay before reconnecting to a broker
+            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var reconnectBackoffMs) ? reconnectBackoffMs : 50,
+            // Maximum delay when exponential backoff applies
+            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var reconnectBackoffMaxMs) ? reconnectBackoffMaxMs : 5000,
+
+            // Consumer group for load balancing
+            GroupId = config["Kafka:GroupId"] ?? "email-consumers",
+            
             // Block & start from earliest if no committed offset
             AutoOffsetReset = Enum.TryParse(config["Kafka:AutoOffsetReset"], out AutoOffsetReset offset) ? offset : AutoOffsetReset.Earliest,
+            
             // commit manually after successful processing
-            EnableAutoCommit = false,
+            EnableAutoCommit = bool.TryParse(config["Kafka:EnableAutoCommit"], out var enableAutoCommit) ? enableAutoCommit : true,
             AutoCommitIntervalMs = int.TryParse(config["Kafka:AutoCommitIntervalMs"], out var commitInterval) ? commitInterval : 5000,
-            // Reasonable stability defaults
-            SessionTimeoutMs = int.TryParse(config["Kafka:SessionTimeoutMs"], out var sessionTimeout) ? sessionTimeout : 30000,
-            MaxPollIntervalMs = int.TryParse(config["Kafka:MaxPollIntervalMs"], out var maxPoll) ? maxPoll : 300000,
-            ApiVersionRequestTimeoutMs = int.TryParse(config["Kafka:ApiVersionRequestTimeoutMs"], out var apiTimeout) ? apiTimeout : 10000,
-            // Improve broker/discovery behavior
-            ReconnectBackoffMs = int.TryParse(config["Kafka:ReconnectBackoffMs"], out var backoff) ? backoff : 1000,
-            ReconnectBackoffMaxMs = int.TryParse(config["Kafka:ReconnectBackoffMaxMs"], out var backoffMax) ? backoffMax : 10000,
 
-            //EnableAutoOffsetStore = false
+            // Heartbeat timeout before rebalance
+            SessionTimeoutMs = int.TryParse(config["Kafka:SessionTimeoutMs"], out var sessionTimeout) ? sessionTimeout : 30000,
+            
+            // Max allowed processing time before consumer removed
+            MaxPollIntervalMs = int.TryParse(config["Kafka:MaxPollIntervalMs"], out var maxPoll) ? maxPoll : 300000,
+
+            // Timeout for metadata / version requests
+            ApiVersionRequestTimeoutMs = int.TryParse(config["Kafka:ApiVersionRequestTimeoutMs"], out var apiTimeout) ? apiTimeout : 10000,
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig)
@@ -74,9 +83,9 @@ public sealed class KafkaEmailConsumer : BackgroundService
     {
         _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topics);
 
-        try 
+        try
         {
-            _consumer.Subscribe(_topics); 
+            _consumer.Subscribe(_topics);
         }
         catch (Exception ex)
         {
@@ -108,7 +117,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     using var scope = _scopeFactory.CreateScope();
                     var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
-                    await sender.SendAsync(dto, dto., stoppingToken);
+                    await sender.SendAsync(dto, stoppingToken);
 
                     _consumer.Commit(result); // success
                 }
@@ -143,12 +152,12 @@ public sealed class KafkaEmailConsumer : BackgroundService
         }
     }
 
-    private static NotificationDto? ParsePayload(string payload)
+    private static NotificationEmailDto? ParsePayload(string payload)
     {
         // 1) Envelope with typed Content
         try
         {
-            var env = JsonSerializer.Deserialize<KafkaMessage<NotificationDto>>(payload, JsonOpts);
+            var env = JsonSerializer.Deserialize<KafkaMessage<NotificationEmailDto>>(payload, JsonOpts);
             if (env?.Content is not null) return env.Content;
         }
         catch { /* fall through */ }
@@ -158,14 +167,14 @@ public sealed class KafkaEmailConsumer : BackgroundService
         {
             var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
             if (!string.IsNullOrWhiteSpace(envRaw?.Content))
-                return JsonSerializer.Deserialize<NotificationDto>(envRaw.Content, JsonOpts);
+                return JsonSerializer.Deserialize<NotificationEmailDto>(envRaw.Content, JsonOpts);
         }
         catch { /* fall through */ }
 
         // 3) Bare DTO
         try
         {
-            return JsonSerializer.Deserialize<NotificationDto>(payload, JsonOpts);
+            return JsonSerializer.Deserialize<NotificationEmailDto>(payload, JsonOpts);
         }
         catch { }
 

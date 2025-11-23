@@ -2,7 +2,9 @@
 
 public enum EmailTemplateType
 {
-    EmailVerification = 1,
-    PasswordReset = 2,
-    GenericNotification = 3
+    Generic = 0,
+    VerificationLink = 1,
+    VerificationCode = 2,
+    MfaCode = 3,
+    PasswordReset = 4
 }

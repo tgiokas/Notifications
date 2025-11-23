@@ -22,19 +22,19 @@
             background: #0078D4;
             color: white;
             padding: 10px 15px;
-            border-radius: 4px;
+            border-radius: 4px;            
             text-decoration: none;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>Password Reset</h2>
+        <h2>Account Verification</h2>
     </div>
     <div class="content">
         <p>Hello {{Username}},</p>
-        <p>Change your password by clicking below:</p>
-        <a href="{{PasswordResetLink}}" class="button">Verify Account</a>
+        <p>This is the one time verifiaction code:</p>       
+        <p style="width: 120px; color: #0078D4; font-weight: 700">{{VerificationCode}}</p>
     </div>
 </body>
 </html>

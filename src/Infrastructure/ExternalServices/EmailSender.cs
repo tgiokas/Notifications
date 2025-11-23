@@ -23,24 +23,21 @@ public class EmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(NotificationDto dto, 
-        EmailTemplateType emailType, 
-        CancellationToken cancellationToken = default)
+    public async Task SendAsync(NotificationEmailDto dto, CancellationToken cancellationToken = default)
     {
         try
         {
             using var client = new SmtpClient(_settings.Host, _settings.Port)
             {
                 Credentials = new NetworkCredential(_settings.Username, _settings.Password),
-                //UseDefaultCredentials = true
-                EnableSsl = true
+                UseDefaultCredentials = true
             };
 
             string htmlBody = string.Empty;
-            if (dto.Tokens is null && !string.IsNullOrEmpty(dto.Message))                 
+            if (dto.TemplateParams is null && !string.IsNullOrEmpty(dto.Message))
                 htmlBody = dto.Message;
-            else          
-                htmlBody = await _templateService.RenderAsync(emailType, dto.Tokens ?? new Dictionary<string, string>()); 
+            else
+                htmlBody = await _templateService.RenderAsync(dto.Type ?? EmailTemplateType.Generic, dto.TemplateParams ?? new Dictionary<string, string>());
 
             var message = new MailMessage
             {
