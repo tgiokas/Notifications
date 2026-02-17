@@ -3,5 +3,5 @@ namespace Notifications.Application.Interfaces;
 
 public interface IEmailSender
 {
-    Task SendAsync(NotificationEmailDto dto, CancellationToken cancellationToken = default);
+    Task SendAsync(NotificationEmailDto emailDto, CancellationToken cancellationToken = default);
 }

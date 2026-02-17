@@ -5,6 +5,7 @@ namespace Notifications.Application.Dtos;
 public class NotificationEmailDto
 {
     public string Recipient { get; set; } = string.Empty;
+    public List<string>? ReplyTo { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public EmailTemplateType? Type { get; set; }

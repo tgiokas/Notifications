@@ -1,13 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
-using Notifications.Application.Interfaces;
 using Notifications.Domain.Interfaces;
 using Notifications.Infrastructure.Database;
 using Notifications.Infrastructure.Repositories;
 
-namespace Microsoft.Extensions.DependencyInjection;
+namespace Notifications.Infrastructure;
 
 public static class InfrastructureServiceRegistration
 {
@@ -37,8 +37,7 @@ public static class InfrastructureServiceRegistration
                     throw new ArgumentException($"Unsupported database provider: {databaseProvider}");
             }
         });
-
-        services.AddScoped<IApplicationDbContext, ApplicationDbContext>();
+       
         services.AddScoped<INotificationRepository, NotificationRepository>();
         return services;
     }

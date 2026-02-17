@@ -1,40 +1,37 @@
+using DotNetEnv;
+
+using Serilog;
+
 using Notifications.Application.Interfaces;
 using Notifications.Application.Services;
-using Notifications.Infrastructure.Configuration;
 using Notifications.Infrastructure.ExternalServices;
 using Notifications.Infrastructure.Messaging;
 
+Env.Load();
+Env.TraversePath().Load();
+
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-// Configure logging
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+Log.Information("Starting Notifications.Worker...");
+
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-builder.Logging.AddEventSourceLogger();
-
-builder.Logging.SetMinimumLevel(LogLevel.Information);
-
-var logger = LoggerFactory.Create(logging =>
-{
-    logging.AddConsole();
-    logging.SetMinimumLevel(LogLevel.Information);
-}).CreateLogger("Startup");
-
-logger.LogInformation("Starting Notifications.Worker...");
-
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
-
-// Infrastructure (DB, Kafka config, etc.)
-//builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
+builder.Logging.AddSerilog(Log.Logger, dispose: true);
 
 // Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
 
 builder.Services.AddScoped<IEmailSender, EmailSender>();
+
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 
 IHost host = builder.Build();
 
-logger.LogInformation("Services configured. Notifications.Worker is running...");
+Log.Information("Services configured. Notifications.Worker is running...");  
 
 await host.RunAsync();

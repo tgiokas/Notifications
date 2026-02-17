@@ -1,69 +1,91 @@
 ﻿using System.Net;
 using System.Net.Mail;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 using Notifications.Domain.Enums;
-using Notifications.Infrastructure.Configuration;
 
 namespace Notifications.Infrastructure.ExternalServices;
 
 public class EmailSender : IEmailSender
 {
-    private readonly ITemplateService _templateService;
-    private readonly SmtpSettings _settings;
+    private readonly ITemplateService _templateService; 
+    private readonly IConfiguration _configuration;
     private readonly ILogger<EmailSender> _logger;
 
-    public EmailSender(ITemplateService templateService, IOptions<SmtpSettings> settings, ILogger<EmailSender> logger)
+    public EmailSender(ITemplateService templateService, IConfiguration config, ILogger<EmailSender> logger)
     {
         _templateService = templateService;
-        _settings = settings.Value;
         _logger = logger;
+        _configuration = config;
     }
 
-    public async Task SendAsync(NotificationEmailDto dto, CancellationToken cancellationToken = default)
+    public async Task SendAsync(NotificationEmailDto emailDto, CancellationToken cancellationToken = default)
     {
         try
-        {
-            using var client = new SmtpClient(_settings.Host, _settings.Port)
+        {            
+            var host = _configuration["SMTP_HOST"]
+                ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_HOST is not set.");
+            var portStr = _configuration["SMTP_PORT"]
+                ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_PORT is not set.");
+            if (!int.TryParse(portStr, out var port))
+                throw new ArgumentException("SMTP_PORT is not a valid integer.", nameof(_configuration));
+            var username = _configuration["SMTP_USERNAME"]
+                ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_USERNAME is not set.");
+            var password = _configuration["SMTP_PASSWORD"]
+                ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_PASSWORD is not set.");
+            var from = _configuration["SMTP_FROM"]
+                ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_FROM is not set.");
+
+            using var client = new SmtpClient(host, port)
             {
-                Credentials = new NetworkCredential(_settings.Username, _settings.Password),
-                UseDefaultCredentials = true
+                Credentials = new NetworkCredential(username, password),               
+                UseDefaultCredentials = true                
             };
 
-            string htmlBody = string.Empty;
-            if (dto.TemplateParams is null && !string.IsNullOrEmpty(dto.Message))
-                htmlBody = dto.Message;
-            else
-                htmlBody = await _templateService.RenderAsync(dto.Type ?? EmailTemplateType.Generic, dto.TemplateParams ?? new Dictionary<string, string>());
+            _logger.LogInformation("Constructing Email...");
+
+            string htmlBody = emailDto.TemplateParams is null && !string.IsNullOrEmpty(emailDto.Message)
+                ? emailDto.Message
+                : await _templateService.RenderAsync(
+                    emailDto.Type ?? EmailTemplateType.Generic,
+                    emailDto.TemplateParams ?? new Dictionary<string, string>());
 
             var message = new MailMessage
             {
-                From = new MailAddress(_settings.From),
-                Subject = dto.Subject,
+                From = new MailAddress(from),
+                Subject = emailDto.Subject,
                 Body = htmlBody,
                 IsBodyHtml = true
             };
 
-            message.To.Add(new MailAddress(dto.Recipient));
+            message.To.Add(new MailAddress(emailDto.Recipient));
+            
+            if (emailDto.ReplyTo != null)
+            {
+                foreach (var replyToAddress in emailDto.ReplyTo)
+                {
+                    message.ReplyToList.Add(new MailAddress(replyToAddress));
+                }
+            }
 
             await client.SendMailAsync(message, cancellationToken);
 
-            _logger.LogInformation("Email sent to {Recipient}", dto.Recipient);
+            _logger.LogInformation("Email sent to {Recipient}", emailDto.Recipient);
         }
         catch (SmtpFailedRecipientException ex)
         {
-            _logger.LogError(ex, "Failed recipient {Recipient}. Response: {StatusCode}", dto.Recipient, ex.StatusCode);
+            _logger.LogError(ex, "Failed recipient {Recipient}. Response: {StatusCode}", emailDto.Recipient, ex.StatusCode);
         }
         catch (SmtpException ex)
         {
-            _logger.LogError(ex, "SMTP error sending to {Recipient}: {Message}", dto.Recipient, ex.Message);
+            _logger.LogError(ex, "SMTP error sending to {Recipient}: {Message}", emailDto.Recipient, ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error sending to {Recipient}", dto.Recipient);
+            _logger.LogError(ex, "Unexpected error sending to {Recipient}", emailDto.Recipient);
         }
     }
 }
