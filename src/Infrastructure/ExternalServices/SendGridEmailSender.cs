@@ -42,9 +42,7 @@ public class SendGridEmailSender : IEmailSender
                 ? emailDto.Message
                 : await _templateService.RenderAsync(
                     emailDto.Type ?? EmailTemplateType.Generic,
-                    emailDto.TemplateParams ?? new Dictionary<string, string>());
-
-            var client = new SendGridClient(apiKey);
+                    emailDto.TemplateParams ?? new Dictionary<string, string>());           
 
             var from = new EmailAddress(fromEmail, fromName);
             var to = new EmailAddress(emailDto.Recipient);
@@ -62,6 +60,8 @@ public class SendGridEmailSender : IEmailSender
                         .ToList());
                 }
             }
+
+            var client = new SendGridClient(apiKey);
 
             var response = await client.SendEmailAsync(msg, cancellationToken);
 

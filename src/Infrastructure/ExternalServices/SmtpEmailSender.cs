@@ -39,13 +39,7 @@ public class SmtpEmailSender : IEmailSender
             var from = !string.IsNullOrWhiteSpace(emailDto.Sender)
                 ? emailDto.Sender
                 : _configuration["SMTP_FROM"]
-                    ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_FROM is not set.");
-
-            using var client = new SmtpClient(host, port)
-            {
-                Credentials = new NetworkCredential(username, password),               
-                UseDefaultCredentials = true                
-            };
+                    ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_FROM is not set.");            
 
             _logger.LogInformation("Constructing Email...");
 
@@ -72,6 +66,12 @@ public class SmtpEmailSender : IEmailSender
                     message.ReplyToList.Add(new MailAddress(replyToAddress));
                 }
             }
+
+            using var client = new SmtpClient(host, port)
+            {
+                Credentials = new NetworkCredential(username, password),
+                UseDefaultCredentials = true
+            };
 
             await client.SendMailAsync(message, cancellationToken);
 
