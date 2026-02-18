@@ -26,7 +26,7 @@ builder.Logging.AddSerilog(Log.Logger, dispose: true);
 // Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
 
-builder.Services.AddScoped<IEmailSender, EmailSender>();
+builder.Services.AddScoped<IEmailSender, EmailSenderFactory>();
 
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 
