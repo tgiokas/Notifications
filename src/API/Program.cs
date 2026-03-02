@@ -1,83 +1,70 @@
-using Notifications.Infrastructure.Database;
-using Notifications.Infrastructure.Configuration;
-using Notifications.Infrastructure.Messaging;
-using Notifications.Application.Interfaces;
-using Notifications.Application.Services;
-using Notifications.Application.Services.Channels;
-using Notifications.Infrastructure.ExternalServices;
+using DotNetEnv;
+using Serilog;
 
+using Notifications.Application.Interfaces;
+using Notifications.Infrastructure.Messaging;
+using Notifications.Application.Services;
+using Notifications.Infrastructure.ExternalServices;
+using Notifications.Api.Middlewares;
+
+Env.Load();
+Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.ConfigureHostOptions(o =>
-{
-    // Make sure an unexpected exception in a BackgroundService
-    // doesn't bring the whole host down.
-    o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
-});
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
 
+Log.Information("Configuration is starting...");
 
-// Add services to the container.
-//builder.Services.AddApplicationServices();
+builder.Host.UseSerilog();
 
-// Register Database Context
-builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
-
-// Configuration binding
-builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
-//builder.Services.Configure<KafkaSettings>(builder.Configuration.GetSection("KafkaSettings"));
-
-
-// Register of KafkaPublisher and IKafkaPublisher
-//builder.Services.AddScoped<IKafkaPublisher<string, string>, KafkaPublisher1<string, string>>();
-
-// Register of KafkaConsumer
-//builder.Services.AddHostedService<KafkaEmailConsumer1<string, string>>();
+// Add Kafka Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
 
-// Infra publisher (singleton, reused)
-builder.Services.AddSingleton<IMessagePublisher, KafkaPublisher>();
-
-// Channel strategies
-builder.Services.AddScoped<INotificationChannelPublisher, EmailChannelPublisher>();
-
-// Application layer
-builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
-builder.Services.AddScoped<IEmailSender, EmailSender>();
+// Add Application Services
+builder.Services.AddScoped<IEmailSender, EmailSenderFactory>();
+builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
 
 builder.Services.AddControllers();
 
-//builder.Services.AddSwaggerGen();
-
 // Add CORS policy
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("CorsPolicy", policyBuilder =>
-//    {
-//        policyBuilder.AllowAnyOrigin();
-//        policyBuilder.AllowAnyMethod();
-//        policyBuilder.AllowAnyHeader();
-//    });
-//});
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policyBuilder =>
+    {
+        policyBuilder.AllowAnyOrigin();
+        policyBuilder.AllowAnyMethod();
+        policyBuilder.AllowAnyHeader();
+    });
+});
 
-//builder.WebHost.UseUrls("http://0.0.0.0:80");
+// Add Swagger for development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+}
 
 var app = builder.Build();
 
-//app.UseCors("CorsPolicy");
+Log.Information("Application is starting...");
 
 if (app.Environment.IsDevelopment())
 {
-    //    app.UseSwagger();
-    //    app.UseSwaggerUI();
-    //using var scope = app.Services.CreateScope();
-    //var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    //dbContext.Database.Migrate();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
+app.UseCors("CorsPolicy");
+app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseMiddleware<LogMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
 app.Run();
-
-

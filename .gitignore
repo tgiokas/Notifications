@@ -7,4 +7,5 @@
 
 **/packages
 /volumes
+/src/API/Logs
 /src/Worker/Logs

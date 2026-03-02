@@ -11,7 +11,7 @@ namespace Notifications.Infrastructure.ExternalServices;
 
 public class SmtpEmailSender : IEmailSender
 {
-    private readonly ITemplateService _templateService; 
+    private readonly ITemplateService _templateService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<SmtpEmailSender> _logger;
 
@@ -25,7 +25,7 @@ public class SmtpEmailSender : IEmailSender
     public async Task SendAsync(NotificationEmailDto emailDto, CancellationToken cancellationToken = default)
     {
         try
-        {            
+        {
             var host = _configuration["SMTP_HOST"]
                 ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_HOST is not set.");
             var portStr = _configuration["SMTP_PORT"]
@@ -39,10 +39,11 @@ public class SmtpEmailSender : IEmailSender
             var from = !string.IsNullOrWhiteSpace(emailDto.Sender)
                 ? emailDto.Sender
                 : _configuration["SMTP_FROM"]
-                    ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_FROM is not set.");            
+                    ?? throw new ArgumentNullException(nameof(_configuration), "SMTP_FROM is not set.");                        
 
-            _logger.LogInformation("Constructing Email...");
+            _logger.LogInformation("Constructing SMTP Email...");
 
+            // Render HTML body
             string htmlBody = emailDto.TemplateParams is null && !string.IsNullOrEmpty(emailDto.Message)
                 ? emailDto.Message
                 : await _templateService.RenderAsync(
@@ -57,8 +58,36 @@ public class SmtpEmailSender : IEmailSender
                 IsBodyHtml = true
             };
 
-            message.To.Add(new MailAddress(emailDto.Recipient));
-            
+            // Collect all To recipients
+            var toAddresses = emailDto.GetAllToRecipients().ToList();
+            if (toAddresses.Count == 0)
+                throw new ArgumentException("At least one recipient is required.");
+
+            // To
+            foreach (var to in toAddresses)
+            {
+                message.To.Add(new MailAddress(to));
+            }
+
+            // CC
+            if (emailDto.Cc is { Count: > 0 })
+            {
+                foreach (var cc in emailDto.Cc)
+                {
+                    message.CC.Add(new MailAddress(cc));
+                }
+            }
+
+            // BCC
+            if (emailDto.Bcc is { Count: > 0 })
+            {
+                foreach (var bcc in emailDto.Bcc)
+                {
+                    message.Bcc.Add(new MailAddress(bcc));
+                }
+            }
+
+            // Reply-to
             if (emailDto.ReplyTo != null)
             {
                 foreach (var replyToAddress in emailDto.ReplyTo)
@@ -70,12 +99,13 @@ public class SmtpEmailSender : IEmailSender
             using var client = new SmtpClient(host, port)
             {
                 Credentials = new NetworkCredential(username, password),
-                UseDefaultCredentials = true
+                //UseDefaultCredentials = true
+                EnableSsl=true
             };
 
             await client.SendMailAsync(message, cancellationToken);
 
-            _logger.LogInformation("SMTP email sent to {Recipient}", emailDto.Recipient);
+            _logger.LogInformation("Email sent to {Recipients}", string.Join(", ", toAddresses));
         }
         catch (SmtpFailedRecipientException ex)
         {
