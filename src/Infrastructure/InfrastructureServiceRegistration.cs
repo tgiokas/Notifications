@@ -2,9 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
+using Notifications.Application.Interfaces;
 using Notifications.Domain.Interfaces;
 using Notifications.Infrastructure.Database;
+using Notifications.Infrastructure.ExternalServices;
+using Notifications.Infrastructure.Messaging;
 using Notifications.Infrastructure.Repositories;
 
 namespace Notifications.Infrastructure;
@@ -39,6 +41,14 @@ public static class InfrastructureServiceRegistration
         });
 
         services.AddScoped<IEmailTemplateRepository, EmailTemplateRepository>();
+
+        services.AddScoped<IEmailSender, EmailSenderFactory>();
+
+        // Seed filesystem templates into DB on first run
+        services.AddHostedService<EmailTemplateSeedService>();
+
+        // Add Kafka Consumer
+        services.AddHostedService<KafkaEmailConsumer>();
 
         return services;
     }

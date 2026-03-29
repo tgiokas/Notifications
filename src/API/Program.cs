@@ -4,7 +4,7 @@ using DotNetEnv;
 using Serilog;
 
 using Notifications.Api.Middlewares;
-using Notifications.Application.Interfaces;
+using Notifications.Application;
 using Notifications.Application.Services;
 using Notifications.Infrastructure;
 using Notifications.Infrastructure.ExternalServices;
@@ -28,19 +28,22 @@ try
 
     builder.Host.UseSerilog();
 
+    // Add Application services
+    builder.Services.AddApplicationServices();
+
     // Add Kafka Consumer
-    builder.Services.AddHostedService<KafkaEmailConsumer>();
+    //builder.Services.AddHostedService<KafkaEmailConsumer>();
 
     // Register Database Context
     builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 
     // Add Application Services
-    builder.Services.AddScoped<IEmailSender, EmailSenderFactory>();
-    builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
-    builder.Services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
+    //builder.Services.AddScoped<IEmailSender, EmailSenderFactory>();
+    //builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+    //builder.Services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
 
     // Seed filesystem templates into DB on first run
-    builder.Services.AddHostedService<EmailTemplateSeedService>();
+    //builder.Services.AddHostedService<EmailTemplateSeedService>();
 
     builder.Services.AddControllers();
 
