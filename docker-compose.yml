@@ -1,17 +1,108 @@
 services:
-  notifications-worker:
-    container_name: notifications-worker
-    build:
-        context: .
+
+  notify-db:
+    image: postgres:15.2
+    container_name: notify-db
     env_file:
       - .env
     environment:
-        ASPNETCORE_ENVIRONMENT: "Development"
+      POSTGRES_USER: ${NOTIFY_DB_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${NOTIFY_DB_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${NOTIFY_DB_POSTGRES_DB}
+    #dev only
+    ports:
+      - "5438:5432"
+    volumes:
+      - notify-db-data:/var/lib/postgresql
     networks:
-        - archium-network
+      - notification-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFY_DB_POSTGRES_USER:-postgres} -d ${NOTIFY_DB_POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    container_name: notification-service
+    build:
+      context: .
+      dockerfile: src/API/Dockerfile
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+    depends_on:
+      notify-db:
+        condition: service_healthy
+    networks:
+      - notification-network
     labels:
       - "traefik.enable=true"
 
+  kafka1:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka1
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka1:29093"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,DOCKER://0.0.0.0:19092,CONTROLLER://0.0.0.0:29093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092,DOCKER://kafka1:19092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "DOCKER"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    networks:
+      - notification-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-topics",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--list",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+      
+      
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka1:19092
+      - SERVER_PORT=8080
+    depends_on:
+      - kafka1      
+    networks:
+      - notification-network
+    restart: always 
+
+volumes:
+  kafka1-data:  
+  notify-db-data: 
+
 networks:
-  archium-network:
-    external: true
+  notification-network:
+    driver: bridge
+    name: notification-network

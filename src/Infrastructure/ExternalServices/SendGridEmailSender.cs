@@ -12,12 +12,12 @@ namespace Notifications.Infrastructure.ExternalServices;
 
 public class SendGridEmailSender : IEmailSender
 {
-    private readonly ITemplateService _templateService;
+    private readonly IEmailTemplateService _templateService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<SendGridEmailSender> _logger;
 
     public SendGridEmailSender(
-        ITemplateService templateService,
+        IEmailTemplateService templateService,
         IConfiguration config,
         ILogger<SendGridEmailSender> logger)
     {

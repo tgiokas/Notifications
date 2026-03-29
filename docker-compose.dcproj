@@ -4,13 +4,9 @@
     <ProjectVersion>2.1</ProjectVersion>
     <DockerTargetOS>Linux</DockerTargetOS>
     <DockerPublishLocally>False</DockerPublishLocally>
-    <ProjectGuid>13e6debd-7a4c-4dff-b59e-c3e244a7459d</ProjectGuid>
-    <DockerLaunchAction>LaunchBrowser</DockerLaunchAction>
-    <DockerServiceUrl>{Scheme}://localhost:{ServicePort}/swagger</DockerServiceUrl>
-    <DockerServiceName>notifications.api</DockerServiceName>
+    <ProjectGuid>d66bdb12-30fb-4e09-849a-d70169f16e1a</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
     <None Include="docker-compose.yml" />
-    <None Include=".dockerignore" />
   </ItemGroup>
 </Project>

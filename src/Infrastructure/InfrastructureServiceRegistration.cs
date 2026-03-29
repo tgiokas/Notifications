@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,13 +12,13 @@ namespace Notifications.Infrastructure;
 public static class InfrastructureServiceRegistration
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, string databaseProvider)
-    {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+    {        
+        var connectionString = configuration["NOTIFY_DB_CONNECTION"];
+        if (string.IsNullOrWhiteSpace(connectionString))
+            throw new InvalidOperationException("Database connection string 'NOTIFY_DB_CONNECTION' is not configured.");
 
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
-        {
-            options.AddInterceptors(sp.GetServices<ISaveChangesInterceptor>());
-
+        {          
             switch (databaseProvider.ToLower())
             {
                 case "sqlserver":
@@ -30,15 +30,16 @@ public static class InfrastructureServiceRegistration
                     break;
 
                 case "sqlite":
-                    //options.UseSqlite(connectionString);                   
+                    //options.UseSqlite(connectionString);
                     break;
 
                 default:
                     throw new ArgumentException($"Unsupported database provider: {databaseProvider}");
             }
         });
-       
-        services.AddScoped<INotificationRepository, NotificationRepository>();
+
+        services.AddScoped<IEmailTemplateRepository, EmailTemplateRepository>();
+
         return services;
     }
 }

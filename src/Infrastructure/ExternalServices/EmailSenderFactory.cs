@@ -12,7 +12,7 @@ public class EmailSenderFactory : IEmailSender
 
     public EmailSenderFactory(
         IConfiguration configuration,
-        ITemplateService templateService,
+        IEmailTemplateService templateService,
         ILogger<SmtpEmailSender> smtpLogger,
         ILogger<SendGridEmailSender> sendGridLogger)
     {

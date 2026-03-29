@@ -7,5 +7,6 @@
 
 **/packages
 /volumes
+src/API/Notifications.Api.csproj.user
 /src/API/Logs
 /src/Worker/Logs

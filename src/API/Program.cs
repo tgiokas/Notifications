@@ -1,11 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+
 using DotNetEnv;
 using Serilog;
 
-using Notifications.Application.Interfaces;
-using Notifications.Infrastructure.Messaging;
-using Notifications.Application.Services;
-using Notifications.Infrastructure.ExternalServices;
 using Notifications.Api.Middlewares;
+using Notifications.Application.Interfaces;
+using Notifications.Application.Services;
+using Notifications.Infrastructure;
+using Notifications.Infrastructure.ExternalServices;
+using Notifications.Infrastructure.Database;
+using Notifications.Infrastructure.Messaging;
 
 Env.Load();
 Env.TraversePath().Load();
@@ -25,10 +29,16 @@ builder.Host.UseSerilog();
 // Add Kafka Consumer
 builder.Services.AddHostedService<KafkaEmailConsumer>();
 
+// Register Database Context
+builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
+
 // Add Application Services
 builder.Services.AddScoped<IEmailSender, EmailSenderFactory>();
-builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
+
+// Seed filesystem templates into DB on first run
+builder.Services.AddHostedService<EmailTemplateSeedService>();
 
 builder.Services.AddControllers();
 
@@ -53,6 +63,11 @@ if (builder.Environment.IsDevelopment())
 var app = builder.Build();
 
 Log.Information("Application is starting...");
+
+using var scope = app.Services.CreateScope();
+var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+dbContext.Database.Migrate();
+Log.Information("Database migrations applied (if any).");
 
 if (app.Environment.IsDevelopment())
 {
