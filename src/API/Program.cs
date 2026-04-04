@@ -6,7 +6,6 @@ using Serilog;
 using Notifications.Api.Middlewares;
 using Notifications.Application;
 using Notifications.Infrastructure;
-using Notifications.Infrastructure.Database;
 
 Env.Load();
 Env.TraversePath().Load();
