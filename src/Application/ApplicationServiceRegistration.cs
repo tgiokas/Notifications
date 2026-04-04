@@ -8,9 +8,8 @@ public static class ApplicationServiceRegistration
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
-
+        services.AddScoped<ITemplateService, TemplateService>();
         return services;
     }
 }

@@ -30,9 +30,9 @@
     },
     "Container (Dockerfile)": {
       "commandName": "Docker",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}",
-      "httpPort": 5040,
+      "httpPort": 5000,
       "useSSL": false,
       "publishAllPorts": true
     }

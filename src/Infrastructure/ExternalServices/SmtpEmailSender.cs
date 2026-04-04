@@ -11,11 +11,11 @@ namespace Notifications.Infrastructure.ExternalServices;
 
 public class SmtpEmailSender : IEmailSender
 {
-    private readonly IEmailTemplateService _templateService;
+    private readonly ITemplateService _templateService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<SmtpEmailSender> _logger;
 
-    public SmtpEmailSender(IEmailTemplateService templateService, IConfiguration config, ILogger<SmtpEmailSender> logger)
+    public SmtpEmailSender(ITemplateService templateService, IConfiguration config, ILogger<SmtpEmailSender> logger)
     {
         _templateService = templateService;
         _logger = logger;

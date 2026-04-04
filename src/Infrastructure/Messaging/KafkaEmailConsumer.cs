@@ -117,25 +117,16 @@ public sealed class KafkaEmailConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Yield to let the rest of the app start
-        await Task.Yield();
+        _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topics);
 
-        _logger.LogInformation("KafkaEmailConsumer starting. Topics: {Topics}", string.Join(",", _topics));
-
-        // Retry subscribe until Kafka is ready
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
-            {
-                _consumer.Subscribe(_topics);
-                _logger.LogInformation("Successfully subscribed to topics.");
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Kafka not ready, retrying in 5s...");
-                await Task.Delay(5000, stoppingToken);
-            }
+            _consumer.Subscribe(_topics);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topics);
+            return;
         }
 
         try
@@ -146,7 +137,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
 
                 try
                 {
-                    result = _consumer.Consume(TimeSpan.FromSeconds(5));
+                    result = _consumer.Consume(stoppingToken);
                     if (result == null) continue;
                     
                     _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);
