@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,14 +7,15 @@ using Confluent.Kafka;
 
 using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
+using Microsoft.Extensions.Options;
+using Notifications.Application.Configuration;
 
 namespace Notifications.Infrastructure.Messaging;
 
 public sealed class KafkaEmailConsumer : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IConfiguration _configuration;
+    private readonly IServiceScopeFactory _scopeFactory;    
     private readonly ILogger<KafkaEmailConsumer> _logger;
     private readonly string[] _topics;
 
@@ -24,79 +24,27 @@ public sealed class KafkaEmailConsumer : BackgroundService
         PropertyNameCaseInsensitive = true
     };
 
-    public KafkaEmailConsumer(IConfiguration config,
+    public KafkaEmailConsumer(IOptions<KafkaSettings> kafkaOptions,
                               ILogger<KafkaEmailConsumer> logger,
                               IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
-        _configuration = config;
-
-        // Read topics from .env
-        var topicsRaw = _configuration["NOTIFY_KAFKA_TOPICS"]
-            ?? throw new ArgumentNullException(nameof(_configuration), "NOTIFY_KAFKA_TOPICS is not set.");
-        _topics = topicsRaw
-            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (_topics.Length == 0)
-            throw new ArgumentException("KAFKA_TOPICS must contain at least one topic.", nameof(_configuration));
+        var settings = kafkaOptions.Value;
+        _topics = settings.Topics;
 
         var consumerConfig = new ConsumerConfig
-        {
-            // Bootstrap servers
-            BootstrapServers = _configuration["KAFKA_BOOTSTRAP_SERVERS"]
-                ?? throw new ArgumentNullException(nameof(_configuration), "KAFKA_BOOTSTRAP_SERVERS is not set."),
-            
-            // Base delay before reconnecting to a broker
-            ReconnectBackoffMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_RECONNECT_BACKOFF_MS"], out var reconnectBackoffMs)
-                    ? reconnectBackoffMs
-                    : throw new ArgumentException("NOTIFY_KAFKA_RECONNECT_BACKOFF_MS is not a valid integer.", nameof(_configuration)),
-
-            // Maximum delay when exponential backoff applies
-            ReconnectBackoffMaxMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_RECONNECT_BACKOFF_MAX_MS"], out var reconnectBackoffMaxMs)
-                    ? reconnectBackoffMaxMs
-                    : throw new ArgumentException("NOTIFY_KAFKA_RECONNECT_BACKOFF_MAX_MS is not a valid integer.", nameof(_configuration)),
-
-            // Consumer group for load balancing
-            GroupId = _configuration["NOTIFY_KAFKA_GROUP_ID"]
-                ?? throw new ArgumentNullException(nameof(_configuration), "NOTIFY_KAFKA_GROUP_ID is not set."),
-
-            // Offset reset strategy
-            AutoOffsetReset =
-                Enum.TryParse(_configuration["NOTIFY_KAFKA_AUTO_OFFSET_RESET"], true, out AutoOffsetReset offset)
-                    ? offset
-                    : throw new ArgumentException("NOTIFY_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(_configuration)),
-
-            // Auto-commit strategy
-            EnableAutoCommit =
-                bool.TryParse(_configuration["NOTIFY_KAFKA_ENABLE_AUTO_COMMIT"], out var autoCommit)
-                    ? autoCommit
-                    : throw new ArgumentException("NOTIFY_KAFKA_ENABLE_AUTO_COMMIT is not a valid boolean.", nameof(_configuration)),
-
-            AutoCommitIntervalMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_AUTO_COMMIT_INTERVAL_MS"], out var commitInterval)
-                    ? commitInterval
-                    : throw new ArgumentException("NOTIFY_KAFKA_AUTO_COMMIT_INTERVAL_MS is not a valid integer.", nameof(_configuration)),
-
-            // Heartbeat timeout before rebalance
-            SessionTimeoutMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_SESSION_TIMEOUT_MS"], out var sessionTimeout)
-                    ? sessionTimeout
-                    : throw new ArgumentException("NOTIFY_KAFKA_SESSION_TIMEOUT_MS is not a valid integer.", nameof(_configuration)),
-
-            // Max processing time before Kafka considers the consumer dead
-            MaxPollIntervalMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS"], out var maxPoll)
-                    ? maxPoll
-                    : throw new ArgumentException("NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS is not a valid integer.", nameof(_configuration)),
-
-            // Timeout for metadata / version requests
-            ApiVersionRequestTimeoutMs =
-                int.TryParse(_configuration["NOTIFY_KAFKA_API_VERSION_REQUEST_TIMEOUT_MS"], out var apiTimeout)
-                    ? apiTimeout
-                    : throw new ArgumentException("NOTIFY_KAFKA_API_VERSION_REQUEST_TIMEOUT_MS is not a valid integer.", nameof(_configuration)),
+        {       
+            BootstrapServers = settings.BootstrapServers,           
+            ReconnectBackoffMs = settings.ReconnectBackoffMs,           
+            ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,            
+            GroupId = settings.GroupId,
+            AutoOffsetReset = settings.AutoOffsetReset,
+            EnableAutoCommit = settings.EnableAutoCommit,
+            AutoCommitIntervalMs = settings.AutoCommitIntervalMs,            
+            SessionTimeoutMs = settings.SessionTimeoutMs,
+            MaxPollIntervalMs = settings.MaxPollIntervalMs,           
+            ApiVersionRequestTimeoutMs = settings.ApiVersionRequestTimeoutMs
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig)
@@ -114,19 +62,27 @@ public sealed class KafkaEmailConsumer : BackgroundService
             .Build();
     }
 
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("KafkaEmailConsumer starting. Topic: {Topic}", _topics);
+        // Yield to let the rest of the app start
+        await Task.Yield();
 
-        try
+        _logger.LogInformation("KafkaEmailConsumer starting. Topics: {Topics}", string.Join(",", _topics));
+
+        // Retry subscribe until Kafka is ready
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _consumer.Subscribe(_topics);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to subscribe to topic {Topic}.", _topics);
-            return;
+            try
+            {
+                _consumer.Subscribe(_topics);
+                _logger.LogInformation("Successfully subscribed to topics.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Kafka not ready, retrying in 5s...");
+                await Task.Delay(5000, stoppingToken);
+            }
         }
 
         try
@@ -137,7 +93,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
 
                 try
                 {
-                    result = _consumer.Consume(stoppingToken);
+                    result = _consumer.Consume(TimeSpan.FromSeconds(5));
                     if (result == null) continue;
                     
                     _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);

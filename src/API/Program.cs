@@ -1,11 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-
 using DotNetEnv;
 using Serilog;
 
-using Notifications.Api.Middlewares;
 using Notifications.Application;
 using Notifications.Infrastructure;
+using Notifications.Api.Middlewares;
 
 Env.Load();
 Env.TraversePath().Load();
