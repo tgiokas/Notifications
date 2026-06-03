@@ -15,6 +15,14 @@ public class SmtpSettings
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string From { get; set; } = string.Empty;
+
+    /// <summary>
+    /// If true, .NET's SmtpClient issues STARTTLS (port 587) or implicit TLS (port 465)
+    /// during the SMTP handshake. Most modern submission relays require this before AUTH;
+    /// IP-allowlisted MX endpoints (e.g. Exchange Online inbound connectors on port 25)
+    /// can run with this set to false. Defaults to true.
+    /// </summary>
+    public bool EnableSsl { get; set; } = true;
 }
 
 public class SendGridSettings
@@ -67,6 +75,20 @@ public class EmailSettings
         if (!int.TryParse(portStr, out var port))
             throw new ArgumentException($"Invalid SMTP_PORT value: '{portStr}'. Expected a valid integer.");
 
+        // SMTP_ENABLE_SSL is optional. Defaults: 465 → true (implicit TLS),
+        // 587 → true (STARTTLS), 25 → false (legacy MX-style submission).
+        // An explicit value always wins.
+        var enableSslRaw = configuration["SMTP_ENABLE_SSL"];
+        bool enableSsl;
+        if (string.IsNullOrWhiteSpace(enableSslRaw))
+        {
+            enableSsl = port != 25;
+        }
+        else if (!bool.TryParse(enableSslRaw, out enableSsl))
+        {
+            throw new ArgumentException($"Invalid SMTP_ENABLE_SSL value: '{enableSslRaw}'. Expected 'true' or 'false'.");
+        }
+
         return new SmtpSettings
         {
             Host = configuration["SMTP_HOST"]
@@ -81,7 +103,9 @@ public class EmailSettings
                 ?? throw new ArgumentNullException(nameof(configuration), "SMTP_PASSWORD is not set."),
 
             From = configuration["SMTP_FROM"]
-                ?? throw new ArgumentNullException(nameof(configuration), "SMTP_FROM is not set.")
+                ?? throw new ArgumentNullException(nameof(configuration), "SMTP_FROM is not set."),
+
+            EnableSsl = enableSsl
         };
     }
 

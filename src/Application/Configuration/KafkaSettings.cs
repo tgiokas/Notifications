@@ -7,12 +7,6 @@ public class KafkaSettings
 {
     // Bootstrap servers
     public string BootstrapServers { get; set; } = string.Empty;
-
-    // Topics for the Consumer to subscribe to
-    public string[] Topics { get; set; } = Array.Empty<string>();
-    
-    // Consumer group for load balancing
-    public string GroupId { get; set; } = string.Empty;
     
     // Base delay before reconnecting to a broker
     public int ReconnectBackoffMs { get; set; }
@@ -20,21 +14,28 @@ public class KafkaSettings
     // Maximum delay when exponential backoff applies
     public int ReconnectBackoffMaxMs { get; set; }
 
+    // Time allowed to establish initial TCP connection
+    public int SocketConnectionSetupTimeoutMs { get; set; }
+
+    // How long to wait for socket operations before failing
+    public int SocketTimeoutMs { get; set; }
+
+
+    // Topics for the Consumer to subscribe to
+    public string[] Topics { get; set; } = Array.Empty<string>();
+
+    // Consumer group for load balancing
+    public string GroupId { get; set; } = string.Empty;
+
     // Offset reset strategy
     public AutoOffsetReset AutoOffsetReset { get; set; } = AutoOffsetReset.Earliest;
-
-    // Auto-commit strategy
-    public bool EnableAutoCommit { get; set; } = false;
-    public int AutoCommitIntervalMs { get; set; } = 5000;
     
     // Heartbeat timeout before rebalance
-    public int SessionTimeoutMs { get; set; } = 30000;
+    public int SessionTimeoutMs { get; set; }
     
     // Max processing time before Kafka considers the consumer dead
-    public int MaxPollIntervalMs { get; set; } = 300000;
+    public int MaxPollIntervalMs { get; set; }  
     
-    // Timeout for metadata / version requests
-    public int ApiVersionRequestTimeoutMs { get; set; } = 10000;
 
     public static KafkaSettings BindFromConfiguration(IConfiguration configuration)
     {
@@ -49,22 +50,23 @@ public class KafkaSettings
 
         return new KafkaSettings
         {
+            // Broker connection settings
             BootstrapServers = configuration["KAFKA_BOOTSTRAP_SERVERS"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KAFKA_BOOTSTRAP_SERVERS is not set."),
-            Topics = topics,
-
-            GroupId = configuration["NOTIFY_KAFKA_GROUP_ID"]
-                ?? throw new ArgumentNullException(nameof(configuration), "NOTIFY_KAFKA_GROUP_ID is not set."),
+                ?? throw new ArgumentNullException(nameof(configuration), "KAFKA_BOOTSTRAP_SERVERS is not set."),            
             ReconnectBackoffMs = ParseInt(configuration, "NOTIFY_KAFKA_RECONNECT_BACKOFF_MS"),
             ReconnectBackoffMaxMs = ParseInt(configuration, "NOTIFY_KAFKA_RECONNECT_BACKOFF_MAX_MS"),
+            SocketConnectionSetupTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_SOCKET_CONNECTION_SETUP_TIMEOUT_MS"),
+            SocketTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_SOCKET_TIMEOUT_MS"),
+
+            // Consumer settings
+            Topics = topics,
+            GroupId = configuration["NOTIFY_KAFKA_GROUP_ID"]
+                ?? throw new ArgumentNullException(nameof(configuration), "NOTIFY_KAFKA_GROUP_ID is not set."),
             AutoOffsetReset = Enum.TryParse(configuration["NOTIFY_KAFKA_AUTO_OFFSET_RESET"], true, out AutoOffsetReset offset)
                 ? offset
-                : throw new ArgumentException("NOTIFY_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(configuration)),
-            EnableAutoCommit = ParseBool(configuration, "NOTIFY_KAFKA_ENABLE_AUTO_COMMIT"),
-            AutoCommitIntervalMs = ParseInt(configuration, "NOTIFY_KAFKA_AUTO_COMMIT_INTERVAL_MS"),
+                : throw new ArgumentException("NOTIFY_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(configuration)),            
             SessionTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_SESSION_TIMEOUT_MS"),
-            MaxPollIntervalMs = ParseInt(configuration, "NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS"),
-            ApiVersionRequestTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_API_VERSION_REQUEST_TIMEOUT_MS")
+            MaxPollIntervalMs = ParseInt(configuration, "NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS"),            
         };
     }
 

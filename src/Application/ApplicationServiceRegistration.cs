@@ -9,7 +9,7 @@ public static class ApplicationServiceRegistration
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<ISendGridEventHandler, SendGridEventHandler>();
-        services.AddScoped<ITemplateService, TemplateService>();
+        services.AddSingleton<ITemplateService, TemplateService>();
         return services;
     }
 }

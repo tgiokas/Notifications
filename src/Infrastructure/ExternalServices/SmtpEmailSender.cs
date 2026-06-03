@@ -37,11 +37,9 @@ public class SmtpEmailSender : IEmailSender
             _logger.LogInformation("Constructing SMTP Email...");
 
             // Render HTML body
-            string htmlBody = emailDto.TemplateParams is null && !string.IsNullOrEmpty(emailDto.Message)
-                ? emailDto.Message
-                : await _templateService.RenderAsync(
-                    emailDto.Type ?? EmailTemplateType.Generic,
-                    emailDto.TemplateParams ?? new Dictionary<string, string>());
+            string htmlBody = emailDto.Type is null
+                ? emailDto.Message ?? string.Empty
+                : await _templateService.RenderAsync((EmailTemplateType)emailDto.Type, emailDto.TemplateParams ?? new Dictionary<string, string>());
 
             var message = new MailMessage
             {
@@ -70,12 +68,23 @@ public class SmtpEmailSender : IEmailSender
                 foreach (var r in emailDto.ReplyTo)
                     message.ReplyToList.Add(new MailAddress(r));
 
+            // UseDefaultCredentials must be set BEFORE Credentials — and must be false,
+            // otherwise SmtpClient ignores the supplied NetworkCredential and tries to
+            // submit as the (empty) process identity, producing "Client host rejected"
+            // on relays that require AUTH (e.g. submission on port 587).
             using var client = new SmtpClient(_smtp.Host, _smtp.Port)
-            {
-                Credentials = new NetworkCredential(_smtp.Username, _smtp.Password),
+            {                
                 //UseDefaultCredentials = true,
                 EnableSsl = true
             };
+
+            // Only attach credentials when a username is configured. IP-allowlisted MX
+            // endpoints (e.g. Exchange Online inbound connectors) accept unauthenticated
+            // submissions; sending an empty AUTH LOGIN there would just confuse them.
+            if (!string.IsNullOrWhiteSpace(_smtp.Username))
+            {
+                client.Credentials = new NetworkCredential(_smtp.Username, _smtp.Password);
+            }
 
             await client.SendMailAsync(message, cancellationToken).ConfigureAwait(false);
 

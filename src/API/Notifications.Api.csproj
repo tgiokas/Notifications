@@ -35,6 +35,12 @@
 	  <None Update="Templates\Email\MfaCode.html">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	  <None Update="Templates\Email\InitialPasswordSet.html">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Templates\Email\PasswordResetSuccess.html">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	  <None Update="Templates\Email\PasswordReset.html">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>

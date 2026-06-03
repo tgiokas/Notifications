@@ -37,11 +37,10 @@ public class SendGridEmailSender : IEmailSender
 
             _logger.LogInformation("Constructing SendGrid email...");
 
-            string htmlBody = emailDto.TemplateParams is null && !string.IsNullOrEmpty(emailDto.Message)
-                ? emailDto.Message
-                : await _templateService.RenderAsync(
-                    emailDto.Type ?? EmailTemplateType.Generic,
-                    emailDto.TemplateParams ?? new Dictionary<string, string>());
+            // Render HTML body
+            string htmlBody = emailDto.Type is null
+                ? emailDto.Message ?? string.Empty
+                : await _templateService.RenderAsync((EmailTemplateType)emailDto.Type, emailDto.TemplateParams ?? new Dictionary<string, string>());            
 
             var message = new SendGridMessage();
             message.SetFrom(new EmailAddress(fromEmail, _sendGrid.FromName));

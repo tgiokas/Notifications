@@ -6,5 +6,7 @@ public enum EmailTemplateType
     VerificationLink = 1,
     VerificationCode = 2,
     MfaCode = 3,
-    PasswordReset = 4
+    PasswordReset = 4,
+    InitialPasswordSet = 5,
+    PasswordResetSuccess = 6
 }

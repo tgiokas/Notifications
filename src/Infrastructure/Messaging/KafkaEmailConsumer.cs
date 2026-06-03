@@ -37,14 +37,15 @@ public sealed class KafkaEmailConsumer : BackgroundService
         {       
             BootstrapServers = settings.BootstrapServers,           
             ReconnectBackoffMs = settings.ReconnectBackoffMs,           
-            ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,            
+            ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
+            SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
+            SocketTimeoutMs = settings.SocketTimeoutMs,
+            
             GroupId = settings.GroupId,
             AutoOffsetReset = settings.AutoOffsetReset,
-            EnableAutoCommit = settings.EnableAutoCommit,
-            AutoCommitIntervalMs = settings.AutoCommitIntervalMs,            
+            EnableAutoCommit = false,         
             SessionTimeoutMs = settings.SessionTimeoutMs,
-            MaxPollIntervalMs = settings.MaxPollIntervalMs,           
-            ApiVersionRequestTimeoutMs = settings.ApiVersionRequestTimeoutMs
+            MaxPollIntervalMs = settings.MaxPollIntervalMs,            
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig)
