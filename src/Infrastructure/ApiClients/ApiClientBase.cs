@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 
 using Notifications.Infrastructure.Helpers.Redaction;
@@ -25,21 +26,25 @@ public abstract class ApiClientBase
 
     protected async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
-        var contentType = request.Content?.Headers.ContentType?.MediaType ?? string.Empty;
+        var requestContentType = request.Content?.Headers.ContentType?.MediaType ?? string.Empty;
 
         string requestBody;
-        if (contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
+        if (requestContentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
         {
-            requestBody = $"[{contentType}]";
+            requestBody = $"[{requestContentType}]";
         }
-        else if (contentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        else if (requestContentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
         {
             var requestBodyRaw = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
             requestBody = FormUrlEncodedRedactor.TryRedact(requestBodyRaw);
         }
-        else
+        else if (IsTextLike(requestContentType))
         {
             requestBody = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
+        }
+        else
+        {
+            requestBody = $"[non-text {requestContentType}]";
         }
 
         var sw = Stopwatch.StartNew();
@@ -62,8 +67,20 @@ public abstract class ApiClientBase
 
         sw.Stop();
 
-        string responseBodyRaw = await response.Content.ReadAsStringAsync(cancellationToken);
-        string responseBody = JsonRedactor.TryRedact(responseBodyRaw);
+        var responseContentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+        string responseBody;
+        if (IsTextLike(responseContentType))
+        {
+            string responseBodyRaw = await response.Content.ReadAsStringAsync(cancellationToken);
+            responseBody = JsonRedactor.TryRedact(responseBodyRaw);
+        }
+        else
+        {
+            long? len = response.Content.Headers.ContentLength;
+            responseBody = len.HasValue
+                ? $"[non-text {responseContentType}, {len.Value} bytes]"
+                : $"[non-text {responseContentType}]";
+        }
 
         int statusCode = (int)response.StatusCode;
         LogLevel logLevel = statusCode > 499 ? LogLevel.Error : LogLevel.Information;
@@ -73,5 +90,15 @@ public abstract class ApiClientBase
 
         return response;
     }
+
+    private static bool IsTextLike(string mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return false;
+        if (mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)) return true;
+        if (mediaType.Contains("json", StringComparison.OrdinalIgnoreCase)) return true;
+        if (mediaType.Contains("xml", StringComparison.OrdinalIgnoreCase)) return true;
+        if (mediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)) return true;
+        if (mediaType.Equals("application/javascript", StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
 }
-      

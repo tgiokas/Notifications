@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 
+using Microsoft.Net.Http.Headers;
+
 using Notifications.Infrastructure.Helpers.Redaction;
 
 namespace Notifications.Api.Middlewares;
@@ -29,7 +31,7 @@ public class LogMiddleware
         }
         else if (IsFormData(httpContext.Request))
         {
-            safeRequestBody = MultipartFormDataRedactor.TryRedact(body);
+            safeRequestBody = MultipartFormDataRedactor.TryRedact(body, GetMultipartBoundary(httpContext.Request));
         }
         safeRequestBody = Truncate(safeRequestBody, MaxPayloadLength);
 
@@ -104,5 +106,12 @@ public class LogMiddleware
     private static bool IsFormData(HttpRequest req)
     {
         return req.ContentType?.Contains("multipart/form-data", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static string? GetMultipartBoundary(HttpRequest req)
+    {
+        if (string.IsNullOrEmpty(req.ContentType)) return null;
+        if (!MediaTypeHeaderValue.TryParse(req.ContentType, out var media)) return null;
+        return media.Boundary.Value;
     }
 }
