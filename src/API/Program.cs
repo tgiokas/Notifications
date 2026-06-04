@@ -28,11 +28,6 @@ builder.Services.AddInfrastructureServices(builder.Configuration, "postgresql");
 
 builder.Services.AddControllers();
 
-builder.Services.Configure<HostOptions>(options =>
-{
-    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
-});
-
 // Add CORS policy
 builder.Services.AddCors(options =>
 {

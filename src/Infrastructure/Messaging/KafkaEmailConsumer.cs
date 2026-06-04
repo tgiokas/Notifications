@@ -123,13 +123,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     _logger.LogError(ex, "ConsumeException at {TPO}: {Reason}",
                         result?.TopicPartitionOffset, ex.Error.Reason);
                     await Task.Delay(1000, stoppingToken);
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning(ex, "JSON error at {TPO}; committing to skip poison message.",
-                        result?.TopicPartitionOffset);
-                    if (result is not null) _consumer.Commit(result);
-                }
+                }               
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
                     // normal shutdown

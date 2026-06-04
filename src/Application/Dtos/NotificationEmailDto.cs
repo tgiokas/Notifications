@@ -19,7 +19,11 @@ public class NotificationEmailDto
     public string Message { get; set; } = string.Empty;
     public EmailTemplateType? Type { get; set; }
     public Dictionary<string, string>? TemplateParams { get; set; }
- 
+
+    /// Optional file attachments, passed by reference (bucket + key) into StorageService.
+    /// Files are downloaded at send time; bytes never travel through Kafka.
+    public List<EmailAttachmentDto>? Attachments { get; set; }
+
     /// Returns all To addresses: the primary Recipient plus any additional Recipients.
     public List<string> GetAllToRecipients()
     {
