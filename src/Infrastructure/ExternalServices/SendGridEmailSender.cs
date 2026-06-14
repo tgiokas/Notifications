@@ -6,6 +6,7 @@ using SendGrid.Helpers.Mail;
 
 using Notifications.Application.Configuration;
 using Notifications.Application.Dtos;
+using Notifications.Application.Exceptions;
 using Notifications.Application.Interfaces;
 using Notifications.Domain.Enums;
 
@@ -14,23 +15,32 @@ namespace Notifications.Infrastructure.ExternalServices;
 public class SendGridEmailSender : IEmailSender
 {
     private readonly ITemplateService _templateService;
+    private readonly IAttachmentResolver _attachmentResolver;
     private readonly SendGridSettings _sendGrid;
     private readonly ILogger<SendGridEmailSender> _logger;
 
     public SendGridEmailSender(
         ITemplateService templateService,
+        IAttachmentResolver attachmentResolver,
         IOptions<EmailSettings> emailSettings,
         ILogger<SendGridEmailSender> logger)
     {
         _templateService = templateService;
+        _attachmentResolver = attachmentResolver;
         _sendGrid = emailSettings.Value.SendGrid;
         _logger = logger;
     }
 
     public async Task SendAsync(NotificationEmailDto emailDto, CancellationToken cancellationToken = default)
     {
+        IReadOnlyList<ResolvedAttachment> attachments = Array.Empty<ResolvedAttachment>();
+
         try
         {
+            // Resolve attachments first. If any is too large or unavailable, this throws and
+            // the whole email is dropped (caught below) before we call the SendGrid API.
+            attachments = await _attachmentResolver.ResolveAsync(emailDto.Attachments, cancellationToken);
+
             var fromEmail = !string.IsNullOrWhiteSpace(emailDto.Sender)
                 ? emailDto.Sender
                 : _sendGrid.FromEmail;
@@ -40,7 +50,7 @@ public class SendGridEmailSender : IEmailSender
             // Render HTML body
             string htmlBody = emailDto.Type is null
                 ? emailDto.Message ?? string.Empty
-                : await _templateService.RenderAsync((EmailTemplateType)emailDto.Type, emailDto.TemplateParams ?? new Dictionary<string, string>());            
+                : await _templateService.RenderAsync((EmailTemplateType)emailDto.Type, emailDto.TemplateParams ?? new Dictionary<string, string>());
 
             var message = new SendGridMessage();
             message.SetFrom(new EmailAddress(fromEmail, _sendGrid.FromName));
@@ -64,6 +74,14 @@ public class SendGridEmailSender : IEmailSender
             else if (emailDto.ReplyTo is { Count: > 1 })
                 message.ReplyTos = emailDto.ReplyTo.Select(r => new EmailAddress(r)).ToList();
 
+            // SendGrid attachments must be base64-encoded.
+            foreach (var att in attachments)
+            {
+                using var ms = new MemoryStream();
+                await att.Content.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
+                message.AddAttachment(att.FileName, Convert.ToBase64String(ms.ToArray()), att.ContentType);
+            }
+
             var client = new SendGridClient(_sendGrid.ApiKey);
             var response = await client.SendEmailAsync(message, cancellationToken).ConfigureAwait(false);
 
@@ -79,9 +97,24 @@ public class SendGridEmailSender : IEmailSender
                     string.Join(", ", toAddresses), response.StatusCode, body);
             }
         }
+        catch (AttachmentTooLargeException ex)
+        {
+            // Drop the whole email — do not send a partial message.
+            _logger.LogError(ex, "Email to {Recipient} not sent: attachments exceed the size limit.", emailDto.Recipient);
+        }
+        catch (AttachmentUnavailableException ex)
+        {
+            // Drop the whole email — a referenced file could not be retrieved.
+            _logger.LogError(ex, "Email to {Recipient} not sent: an attachment could not be retrieved.", emailDto.Recipient);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error sending via SendGrid to {Recipient}", emailDto.Recipient);
+        }
+        finally
+        {
+            foreach (var att in attachments)
+                att.Dispose();
         }
     }
 }
