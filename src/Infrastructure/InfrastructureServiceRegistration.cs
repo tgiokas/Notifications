@@ -29,7 +29,7 @@ public static class InfrastructureServiceRegistration
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {
             client.BaseAddress = new Uri(attachmentSettings.StorageBaseUrl); 
-            client.Timeout = TimeSpan.FromSeconds(100);
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
 
         // Attachment resolver (downloads refs + enforces size cap)

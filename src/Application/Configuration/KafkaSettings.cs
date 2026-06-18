@@ -34,8 +34,13 @@ public class KafkaSettings
     public int SessionTimeoutMs { get; set; }
     
     // Max processing time before Kafka considers the consumer dead
-    public int MaxPollIntervalMs { get; set; }  
-    
+    public int MaxPollIntervalMs { get; set; }
+
+    // SASL / TLS — opt-in only; when absent the consumer runs plaintext (default behaviour unchanged)
+    public string? SecurityProtocol { get; set; }
+    public string? SaslMechanism { get; set; }
+    public string? SaslUsername { get; set; }
+    public string? SaslPassword { get; set; }
 
     public static KafkaSettings BindFromConfiguration(IConfiguration configuration)
     {
@@ -48,11 +53,11 @@ public class KafkaSettings
         if (topics.Length == 0)
             throw new ArgumentException("NOTIFY_KAFKA_TOPICS must contain at least one topic.", nameof(configuration));
 
-        return new KafkaSettings
+        var settings = new KafkaSettings
         {
             // Broker connection settings
             BootstrapServers = configuration["KAFKA_BOOTSTRAP_SERVERS"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KAFKA_BOOTSTRAP_SERVERS is not set."),            
+                ?? throw new ArgumentNullException(nameof(configuration), "KAFKA_BOOTSTRAP_SERVERS is not set."),
             ReconnectBackoffMs = ParseInt(configuration, "NOTIFY_KAFKA_RECONNECT_BACKOFF_MS"),
             ReconnectBackoffMaxMs = ParseInt(configuration, "NOTIFY_KAFKA_RECONNECT_BACKOFF_MAX_MS"),
             SocketConnectionSetupTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_SOCKET_CONNECTION_SETUP_TIMEOUT_MS"),
@@ -64,10 +69,18 @@ public class KafkaSettings
                 ?? throw new ArgumentNullException(nameof(configuration), "NOTIFY_KAFKA_GROUP_ID is not set."),
             AutoOffsetReset = Enum.TryParse(configuration["NOTIFY_KAFKA_AUTO_OFFSET_RESET"], true, out AutoOffsetReset offset)
                 ? offset
-                : throw new ArgumentException("NOTIFY_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(configuration)),            
+                : throw new ArgumentException("NOTIFY_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(configuration)),
             SessionTimeoutMs = ParseInt(configuration, "NOTIFY_KAFKA_SESSION_TIMEOUT_MS"),
-            MaxPollIntervalMs = ParseInt(configuration, "NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS"),            
+            MaxPollIntervalMs = ParseInt(configuration, "NOTIFY_KAFKA_MAX_POLL_INTERVAL_MS"),
         };
+
+        // SASL / TLS — opt-in; missing or blank → plaintext default unchanged
+        settings.SecurityProtocol = configuration["NOTIFY_KAFKA_SECURITY_PROTOCOL"];
+        settings.SaslMechanism    = configuration["NOTIFY_KAFKA_SASL_MECHANISM"];
+        settings.SaslUsername     = configuration["NOTIFY_KAFKA_SASL_USERNAME"];
+        settings.SaslPassword     = configuration["NOTIFY_KAFKA_SASL_PASSWORD"];
+
+        return settings;
     }
 
     private static int ParseInt(IConfiguration config, string key)

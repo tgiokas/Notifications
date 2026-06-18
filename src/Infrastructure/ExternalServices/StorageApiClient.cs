@@ -34,15 +34,18 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
 
         var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
 
-        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
-                       ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
-                       ?? key.Split('/').Last();
+        static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+
+        var fileName = Blank(response.Content.Headers.ContentDisposition?.FileNameStar)
+                       ?? Blank(response.Content.Headers.ContentDisposition?.FileName?.Trim('"'))
+                       ?? Blank(key.TrimEnd('/').Split('/').LastOrDefault())
+                       ?? "attachment";
 
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
 
         return new ResolvedAttachment
         {
-            Content = new MemoryStream(bytes),
+            Content = new MemoryStream(bytes, 0, bytes.Length, writable: false, publiclyVisible: true),
             FileName = fileName,
             ContentType = contentType,
             Size = bytes.LongLength

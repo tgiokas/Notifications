@@ -77,9 +77,20 @@ public class SendGridEmailSender : IEmailSender
             // SendGrid attachments must be base64-encoded.
             foreach (var att in attachments)
             {
-                using var ms = new MemoryStream();
-                await att.Content.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
-                message.AddAttachment(att.FileName, Convert.ToBase64String(ms.ToArray()), att.ContentType);
+                string base64;
+                if (att.Content is MemoryStream mem && mem.TryGetBuffer(out var seg))
+                {
+                    base64 = Convert.ToBase64String(seg.Array!, seg.Offset, seg.Count);
+                }
+                else
+                {
+                    // Fallback for any other stream type.
+                    using var ms = new MemoryStream();
+                    await att.Content.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
+                    base64 = Convert.ToBase64String(ms.GetBuffer(), 0, (int)ms.Length);
+                }
+
+                message.AddAttachment(att.FileName, base64, att.ContentType);
             }
 
             var client = new SendGridClient(_sendGrid.ApiKey);
