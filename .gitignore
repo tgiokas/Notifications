@@ -10,3 +10,8 @@
 src/API/Notifications.Api.csproj.user
 /src/API/Logs
 /src/Worker/Logs
+
+# Local SQLite outbox store (EMAIL_DELIVERY_MODE=outbox)
+*.db
+*.db-shm
+*.db-wal

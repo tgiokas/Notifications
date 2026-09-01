@@ -5,10 +5,11 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.WebAPI.Controllers;
 
-/// REST entry point into the Kafka email pipeline: validates the request and
-/// queues it onto the same topic KafkaEmailConsumer subscribes to, so delivery
-/// (SendGrid/SMTP, templating, attachments, retries) is identical to any other
-/// producer's messages.
+/// REST entry point into the email pipeline: validates the request and queues
+/// it for delivery via IEmailPublisher. Which queue that is — Kafka or a local
+/// outbox — is chosen by EMAIL_DELIVERY_MODE and is transparent here; either
+/// way the message ends up going through the same IEmailSender (SendGrid/SMTP)
+/// used by every other producer.
 [ApiController]
 [Route("[controller]")]
 public class EmailsController : ControllerBase

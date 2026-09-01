@@ -5,12 +5,10 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.Application.Services;
 
-/// Entry point for sending emails over the REST API, as an alternative to
-/// publishing directly to Kafka from another service. Validates the request
-/// and queues it via IEmailPublisher onto the same Kafka topic
-/// KafkaEmailConsumer already subscribes to, so delivery (provider, template,
-/// attachment handling, retries) goes through the exact same path regardless
-/// of whether the message originated here or from another producer.
+/// Entry point for sending emails over the REST API. Validates the request and
+/// hands it to whichever IEmailPublisher is registered for the configured
+/// EMAIL_DELIVERY_MODE (Kafka topic or local outbox) — this class doesn't know
+/// or care which, so switching modes needs no change here.
 public class EmailService : IEmailService
 {
     private readonly IEmailPublisher _emailPublisher;

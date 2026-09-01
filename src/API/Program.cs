@@ -2,7 +2,9 @@ using DotNetEnv;
 using Serilog;
 
 using Notifications.Application;
+using Notifications.Application.Configuration;
 using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
 using Notifications.Api.Middlewares;
 
 Env.Load();
@@ -49,6 +51,15 @@ if (builder.Environment.IsDevelopment())
 var app = builder.Build();
 
 Log.Information("Application is starting...");
+
+// Outbox mode uses SQLite with no migration tooling in this pipeline; EnsureCreated
+// is sufficient for its single table and is a no-op once the file/schema exists.
+var deliveryMode = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DeliverySettings>>().Value.EmailMode;
+if (deliveryMode == EmailDeliveryMode.Outbox)
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.EnsureCreated();
+}
 
 if (app.Environment.IsDevelopment())
 {
