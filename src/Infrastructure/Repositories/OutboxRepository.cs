@@ -2,15 +2,15 @@ using Microsoft.EntityFrameworkCore;
 
 using Notifications.Domain.Entities;
 using Notifications.Domain.Interfaces;
-using Notifications.Infrastructure.Persistence;
+using Notifications.Infrastructure.Database;
 
 namespace Notifications.Infrastructure.Repositories;
 
 public class OutboxRepository : IOutboxRepository
 {
-    private readonly NotificationsDbContext _dbContext;
+    private readonly ApplicationDbContext _dbContext;
 
-    public OutboxRepository(NotificationsDbContext dbContext)
+    public OutboxRepository(ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
     }
