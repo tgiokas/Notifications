@@ -52,10 +52,17 @@ public static class InfrastructureServiceRegistration
         // Kafka consumer: unrelated to the REST API. Consumes whatever external
         // producers (e.g. the Authentication service) publish onto these topics
         // and delivers via IEmailSender, same as before the REST endpoint existed.
-        // Optional: an environment with no Kafka broker at all can simply omit
-        // KAFKA_BOOTSTRAP_SERVERS — the consumer is skipped and the REST/outbox
-        // path (which never touches Kafka) is unaffected.
-        if (!string.IsNullOrWhiteSpace(configuration["KAFKA_BOOTSTRAP_SERVERS"]))
+        // Optional: set KAFKA_ENABLED=false in an environment with no Kafka broker
+        // at all — the consumer is skipped and the REST/outbox path (which never
+        // touches Kafka) is unaffected. Defaults to true to preserve existing behavior.
+        var kafkaEnabledRaw = configuration["KAFKA_ENABLED"];
+        var kafkaEnabled = string.IsNullOrWhiteSpace(kafkaEnabledRaw)
+            ? true
+            : bool.TryParse(kafkaEnabledRaw, out var parsed)
+                ? parsed
+                : throw new ArgumentException($"Invalid KAFKA_ENABLED value: '{kafkaEnabledRaw}'. Expected 'true' or 'false'.");
+
+        if (kafkaEnabled)
         {
             var kafkaSettings = KafkaSettings.BindFromConfiguration(configuration);
             services.AddSingleton(Options.Create(kafkaSettings));
@@ -63,7 +70,7 @@ public static class InfrastructureServiceRegistration
         }
         else
         {
-            Console.WriteLine("KAFKA_BOOTSTRAP_SERVERS is not set; KafkaEmailConsumer will not start.");
+            Console.WriteLine("KAFKA_ENABLED=false; KafkaEmailConsumer will not start.");
         }
 
         // Outbox: the REST email endpoint's only delivery path. EmailsController ->
