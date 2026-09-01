@@ -9,10 +9,12 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
-    # kafka1 is only required for EMAIL_DELIVERY_MODE=kafka (the default in .env).
-    # Switching to EMAIL_DELIVERY_MODE=outbox uses the postgres service instead.
+    # kafka1: KafkaEmailConsumer consumes external producers' messages.
+    # postgres: backs the outbox table the REST email endpoint writes to.
     depends_on:
       kafka1:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     ports:
       - "5042:8080"

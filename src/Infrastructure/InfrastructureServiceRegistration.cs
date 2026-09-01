@@ -37,7 +37,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAttachmentResolver, AttachmentResolver>();
 
         // Register the concrete email provider. This is the only thing that actually
-        // sends mail — used by both delivery modes below (via KafkaEmailConsumer or
+        // sends mail — used by both inbound paths below (KafkaEmailConsumer and
         // OutboxProcessor), never called directly from the REST controller.
         switch (emailSettings.Provider)
         {
@@ -49,35 +49,25 @@ public static class InfrastructureServiceRegistration
                 break;
         }
 
-        // How emails submitted via the REST API get queued for delivery: Kafka (default)
-        // or a local outbox, for deployments that don't want a Kafka dependency at all.
-        var deliverySettings = DeliverySettings.BindFromConfiguration(configuration);
-        services.AddSingleton(Options.Create(deliverySettings));
+        // Kafka consumer: unrelated to the REST API. Consumes whatever external
+        // producers (e.g. the Authentication service) publish onto these topics
+        // and delivers via IEmailSender, same as before the REST endpoint existed.
+        var kafkaSettings = KafkaSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(kafkaSettings));
+        services.AddHostedService<KafkaEmailConsumer>();
 
-        switch (deliverySettings.EmailMode)
-        {
-            case EmailDeliveryMode.Outbox:
-                var outboxSettings = OutboxSettings.BindFromConfiguration(configuration);
-                services.AddSingleton(Options.Create(outboxSettings));
+        // Outbox: the REST email endpoint's only delivery path. EmailsController ->
+        // EmailService -> OutboxEmailPublisher writes a row; OutboxProcessor polls it
+        // and delivers via the same IEmailSender above. No Kafka involved.
+        var outboxSettings = OutboxSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(outboxSettings));
 
-                services.AddDbContext<NotificationsDbContext>(options =>
-                    options.UseNpgsql(outboxSettings.ConnectionString));
+        services.AddDbContext<NotificationsDbContext>(options =>
+            options.UseNpgsql(outboxSettings.ConnectionString));
 
-                services.AddScoped<IOutboxRepository, OutboxRepository>();
-                services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
-                services.AddHostedService<OutboxProcessor>();
-                break;
-
-            case EmailDeliveryMode.Kafka:
-            default:
-                var kafkaSettings = KafkaSettings.BindFromConfiguration(configuration);
-                services.AddSingleton(Options.Create(kafkaSettings));
-
-                services.AddHostedService<KafkaEmailConsumer>();
-                services.AddSingleton<IMessagePublisher, KafkaPublisher>();
-                services.AddSingleton<IEmailPublisher, KafkaEmailPublisher>();
-                break;
-        }
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
+        services.AddHostedService<OutboxProcessor>();
 
         return services;
     }

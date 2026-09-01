@@ -42,14 +42,6 @@ public class KafkaSettings
     public string? SaslUsername { get; set; }
     public string? SaslPassword { get; set; }
 
-    // Producer settings — optional, used only by IMessagePublisher (e.g. the REST email endpoint).
-    // Defaults to the first entry of Topics so a message published here lands on a topic
-    // KafkaEmailConsumer already subscribes to.
-    public string ProduceTopic { get; set; } = string.Empty;
-    public int RetryBackoffMs { get; set; } = 100;
-    public int RequestTimeoutMs { get; set; } = 30000;
-    public int MessageTimeoutMs { get; set; } = 30000;
-
     public static KafkaSettings BindFromConfiguration(IConfiguration configuration)
     {
         var topicsRaw = configuration["NOTIFY_KAFKA_TOPICS"]
@@ -88,23 +80,7 @@ public class KafkaSettings
         settings.SaslUsername     = configuration["NOTIFY_KAFKA_SASL_USERNAME"];
         settings.SaslPassword     = configuration["NOTIFY_KAFKA_SASL_PASSWORD"];
 
-        // Producer settings — optional; fall back to sane defaults / the first consumed topic
-        // so existing deployments don't need new env vars to keep working.
-        settings.ProduceTopic = string.IsNullOrWhiteSpace(configuration["NOTIFY_KAFKA_PRODUCE_TOPIC"])
-            ? topics[0]
-            : configuration["NOTIFY_KAFKA_PRODUCE_TOPIC"]!;
-        settings.RetryBackoffMs = ParseIntOrDefault(configuration, "NOTIFY_KAFKA_RETRY_BACKOFF_MS", settings.RetryBackoffMs);
-        settings.RequestTimeoutMs = ParseIntOrDefault(configuration, "NOTIFY_KAFKA_REQUEST_TIMEOUT_MS", settings.RequestTimeoutMs);
-        settings.MessageTimeoutMs = ParseIntOrDefault(configuration, "NOTIFY_KAFKA_MESSAGE_TIMEOUT_MS", settings.MessageTimeoutMs);
-
         return settings;
-    }
-
-    private static int ParseIntOrDefault(IConfiguration config, string key, int defaultValue)
-    {
-        var raw = config[key];
-        if (string.IsNullOrWhiteSpace(raw)) return defaultValue;
-        return int.TryParse(raw, out var value) ? value : defaultValue;
     }
 
     private static int ParseInt(IConfiguration config, string key)
