@@ -49,6 +49,11 @@ public static class InfrastructureServiceRegistration
         // Add Kafka Consumer
         services.AddHostedService<KafkaEmailConsumer>();
 
+        // Kafka producer, used by the REST email endpoint to queue messages onto the
+        // same topic KafkaEmailConsumer subscribes to (instead of sending inline).
+        services.AddSingleton<IMessagePublisher, KafkaPublisher>();
+        services.AddSingleton<IEmailPublisher, KafkaEmailPublisher>();
+
         return services;
     }
 }

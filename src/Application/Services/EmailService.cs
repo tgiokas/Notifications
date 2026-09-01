@@ -1,19 +1,25 @@
+using Microsoft.Extensions.Logging;
+
 using Notifications.Application.Dtos;
 using Notifications.Application.Interfaces;
 
 namespace Notifications.Application.Services;
 
-/// Entry point for sending emails synchronously over the REST API, as an
-/// alternative to the Kafka consumer. Delegates the actual delivery to the
-/// same IEmailSender used by KafkaEmailConsumer, so both paths share identical
-/// provider, template and attachment handling.
+/// Entry point for sending emails over the REST API, as an alternative to
+/// publishing directly to Kafka from another service. Validates the request
+/// and queues it via IEmailPublisher onto the same Kafka topic
+/// KafkaEmailConsumer already subscribes to, so delivery (provider, template,
+/// attachment handling, retries) goes through the exact same path regardless
+/// of whether the message originated here or from another producer.
 public class EmailService : IEmailService
 {
-    private readonly IEmailSender _emailSender;
+    private readonly IEmailPublisher _emailPublisher;
+    private readonly ILogger<EmailService> _logger;
 
-    public EmailService(IEmailSender emailSender)
+    public EmailService(IEmailPublisher emailPublisher, ILogger<EmailService> logger)
     {
-        _emailSender = emailSender;
+        _emailPublisher = emailPublisher;
+        _logger = logger;
     }
 
     public async Task<Result<string>> SendEmailAsync(NotificationEmailDto emailDto, CancellationToken cancellationToken = default)
@@ -22,9 +28,17 @@ public class EmailService : IEmailService
         if (validationError is not null)
             return Result<string>.Fail(validationError, "VALIDATION_ERROR");
 
-        await _emailSender.SendAsync(emailDto, cancellationToken);
+        try
+        {
+            await _emailPublisher.PublishAsync(emailDto, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to queue email for delivery.");
+            return Result<string>.Fail("Failed to queue email for delivery.", "PUBLISH_ERROR");
+        }
 
-        return Result<string>.Ok("Email accepted for delivery.");
+        return Result<string>.Ok("Email queued for delivery.");
     }
 
     private static string? Validate(NotificationEmailDto emailDto)

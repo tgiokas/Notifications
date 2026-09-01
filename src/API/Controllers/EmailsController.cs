@@ -5,8 +5,10 @@ using Notifications.Application.Interfaces;
 
 namespace Notifications.WebAPI.Controllers;
 
-/// REST alternative to the Kafka email pipeline: submits a message directly to
-/// the configured IEmailSender (SendGrid or SMTP) instead of publishing to Kafka.
+/// REST entry point into the Kafka email pipeline: validates the request and
+/// queues it onto the same topic KafkaEmailConsumer subscribes to, so delivery
+/// (SendGrid/SMTP, templating, attachments, retries) is identical to any other
+/// producer's messages.
 [ApiController]
 [Route("[controller]")]
 public class EmailsController : ControllerBase
@@ -33,10 +35,12 @@ public class EmailsController : ControllerBase
         if (!result.Success)
         {
             _logger.LogWarning("Email request rejected: {Message}", result.Message);
-            return BadRequest(result);
+            return result.ErrorCode == "PUBLISH_ERROR"
+                ? StatusCode(StatusCodes.Status503ServiceUnavailable, result)
+                : BadRequest(result);
         }
 
-        _logger.LogInformation("Email accepted for delivery. To: [{Recipients}]",
+        _logger.LogInformation("Email queued for delivery. To: [{Recipients}]",
             string.Join(", ", request.GetAllToRecipients()));
 
         return Accepted(result);
