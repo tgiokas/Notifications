@@ -9,7 +9,9 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
-    depends_on:     
+    # kafka1 is only required for EMAIL_DELIVERY_MODE=kafka (the default in .env).
+    # Switching to EMAIL_DELIVERY_MODE=outbox uses the postgres service instead.
+    depends_on:
       kafka1:
         condition: service_healthy
     ports:
@@ -55,6 +57,27 @@ services:
       - kafka1-data:/var/lib/kafka/data
       
       
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: notifications
+    ports:
+      - "5432:5432"
+    networks:
+      - notification-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifications -d notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -101,6 +124,7 @@ services:
 
 volumes:
   kafka1-data:
+  postgres-data:
 
 networks:
   notification-network:

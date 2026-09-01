@@ -4,20 +4,18 @@ namespace Notifications.Application.Configuration;
 
 public class OutboxSettings
 {
-    // SQLite by default so the outbox mode needs no external database —
-    // it's the point of not depending on Kafka either.
-    public string ConnectionString { get; set; } = "Data Source=outbox.db";
+    public string ConnectionString { get; set; } = string.Empty;
     public int PollingIntervalMs { get; set; } = 5000;
     public int BatchSize { get; set; } = 20;
     public int MaxAttempts { get; set; } = 5;
 
     public static OutboxSettings BindFromConfiguration(IConfiguration configuration)
     {
-        var settings = new OutboxSettings();
-
-        var connectionString = configuration["OUTBOX_CONNECTION_STRING"];
-        if (!string.IsNullOrWhiteSpace(connectionString))
-            settings.ConnectionString = connectionString;
+        var settings = new OutboxSettings
+        {
+            ConnectionString = configuration["OUTBOX_CONNECTION_STRING"]
+                ?? throw new ArgumentNullException(nameof(configuration), "OUTBOX_CONNECTION_STRING is not set.")
+        };
 
         settings.PollingIntervalMs = ParseIntOrDefault(configuration, "OUTBOX_POLLING_INTERVAL_MS", settings.PollingIntervalMs);
         settings.BatchSize = ParseIntOrDefault(configuration, "OUTBOX_BATCH_SIZE", settings.BatchSize);

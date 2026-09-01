@@ -6,9 +6,11 @@ using Microsoft.Extensions.Options;
 using Notifications.Application.Configuration;
 using Notifications.Application.Interfaces;
 using Notifications.Application.Services;
+using Notifications.Domain.Interfaces;
 using Notifications.Infrastructure.ExternalServices;
 using Notifications.Infrastructure.Messaging;
 using Notifications.Infrastructure.Persistence;
+using Notifications.Infrastructure.Repositories;
 
 namespace Notifications.Infrastructure;
 
@@ -36,7 +38,7 @@ public static class InfrastructureServiceRegistration
 
         // Register the concrete email provider. This is the only thing that actually
         // sends mail — used by both delivery modes below (via KafkaEmailConsumer or
-        // OutboxDispatcher), never called directly from the REST controller.
+        // OutboxProcessor), never called directly from the REST controller.
         switch (emailSettings.Provider)
         {
             case EmailProviderType.SendGrid:
@@ -59,11 +61,11 @@ public static class InfrastructureServiceRegistration
                 services.AddSingleton(Options.Create(outboxSettings));
 
                 services.AddDbContext<NotificationsDbContext>(options =>
-                    options.UseSqlite(outboxSettings.ConnectionString));
+                    options.UseNpgsql(outboxSettings.ConnectionString));
 
-                services.AddScoped<IOutboxStore, EfOutboxStore>();
+                services.AddScoped<IOutboxRepository, OutboxRepository>();
                 services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
-                services.AddHostedService<OutboxDispatcher>();
+                services.AddHostedService<OutboxProcessor>();
                 break;
 
             case EmailDeliveryMode.Kafka:

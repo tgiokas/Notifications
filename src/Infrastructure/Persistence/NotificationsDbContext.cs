@@ -19,12 +19,12 @@ public class NotificationsDbContext : DbContext
             builder.ToTable("outbox_messages");
             builder.HasKey(m => m.Id);
 
-            builder.Property(m => m.Channel).HasMaxLength(64).IsRequired();
+            builder.Property(m => m.EventType).HasMaxLength(128).IsRequired();
             builder.Property(m => m.Payload).IsRequired();
-            builder.Property(m => m.Status).HasConversion<string>().HasMaxLength(32);
-            builder.Property(m => m.LastError).HasMaxLength(2000);
+            builder.Property(m => m.Key).HasMaxLength(320); // enough for an email address
+            builder.Property(m => m.Error).HasMaxLength(2000);
 
-            builder.HasIndex(m => new { m.Status, m.NextAttemptAt });
+            builder.HasIndex(m => new { m.ProcessedAt, m.RetryCount, m.CreatedAt });
         });
     }
 }

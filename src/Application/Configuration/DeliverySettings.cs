@@ -10,8 +10,8 @@ public enum EmailDeliveryMode
 
 /// Chooses how emails submitted via the REST API are queued for delivery:
 /// Kafka (default, published onto a topic and picked up by KafkaEmailConsumer)
-/// or Outbox (written to a local durable store and picked up by OutboxDispatcher),
-/// for deployments that don't want a Kafka dependency at all.
+/// or Outbox (written to a Postgres-backed outbox table and picked up by
+/// OutboxProcessor), for deployments that don't want a Kafka dependency at all.
 public class DeliverySettings
 {
     public EmailDeliveryMode EmailMode { get; set; } = EmailDeliveryMode.Kafka;
