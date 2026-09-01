@@ -3,8 +3,9 @@ using Serilog;
 
 using Notifications.Application;
 using Notifications.Infrastructure;
-using Notifications.Infrastructure.Persistence;
+using Notifications.Infrastructure.Database;
 using Notifications.Api.Middlewares;
+using Microsoft.EntityFrameworkCore;
 
 Env.Load();
 Env.TraversePath().Load();
@@ -51,20 +52,17 @@ var app = builder.Build();
 
 Log.Information("Application is starting...");
 
-// NotificationsDbContext is only registered when KAFKA_ENABLED=false (outbox
-// profile) — see InfrastructureServiceRegistration. No migration tooling in
-// this pipeline; EnsureCreated is sufficient for the single outbox table and
-// is a no-op once the schema already exists.
-using (var scope = app.Services.CreateScope())
-{
-    scope.ServiceProvider.GetService<NotificationsDbContext>()?.Database.EnsureCreated();
-}
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Auto-migrate
+using var scope = app.Services.CreateScope();
+var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+dbContext.Database.Migrate();
+Log.Information("Database migrations applied (if any).");
 
 app.UseCors("CorsPolicy");
 app.UseMiddleware<ErrorHandlingMiddleware>();

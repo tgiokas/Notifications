@@ -2,11 +2,11 @@ using Microsoft.EntityFrameworkCore;
 
 using Notifications.Domain.Entities;
 
-namespace Notifications.Database.Persistence;
+namespace Notifications.Infrastructure.Database;
 
-public class NotificationsDbContext : DbContext
+public class ApplicationDbContext : DbContext
 {
-    public NotificationsDbContext(DbContextOptions<NotificationsDbContext> options) : base(options)
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
     }
 
