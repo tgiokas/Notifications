@@ -6,10 +6,10 @@ using Microsoft.Extensions.Options;
 
 using Confluent.Kafka;
 
-using Notifications.Application.Dtos;
-using Notifications.Application.Interfaces;
-
 using Notifications.Application.Configuration;
+using Notifications.Application.Dtos;
+using Notifications.Application.Exceptions;
+using Notifications.Application.Interfaces;
 
 namespace Notifications.Infrastructure.Messaging;
 
@@ -18,11 +18,17 @@ public sealed class KafkaEmailConsumer : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KafkaEmailConsumer> _logger;
     private readonly ConsumerConfig _consumerConfig;
-    private readonly string[] _topics;    
+    private readonly string[] _topics;
     private volatile bool _fatalError;
 
     private const int RebuildDelayMs = 5000;
     private const int TransientBackoffMs = 1000;
+
+    // Delivery retry policy for transient send failures (e.g. a StorageService hiccup).
+    // 5 attempts with exponential backoff (1+2+4+8s ≈ 15s total) stays well under
+    // MaxPollIntervalMs, so Kafka won't consider the consumer dead mid-retry.
+    private const int MaxDeliveryAttempts = 5;
+    private const int DeliveryRetryBaseMs = 1000;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -46,6 +52,7 @@ public sealed class KafkaEmailConsumer : BackgroundService
             ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
             SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
             SocketTimeoutMs = settings.SocketTimeoutMs,
+            SocketKeepaliveEnable = true,
 
             GroupId = settings.GroupId,
             AutoOffsetReset = settings.AutoOffsetReset,
@@ -164,10 +171,9 @@ public sealed class KafkaEmailConsumer : BackgroundService
                     continue;
                 }
 
-                using var scope = _scopeFactory.CreateScope();
-                var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-
-                await sender.SendAsync(emailDto, stoppingToken);
+                // Retry transient delivery failures in place, BEFORE committing, so the
+                // offset only advances once the message is truly handled.
+                await DeliverWithRetriesAsync(emailDto, result.TopicPartitionOffset, stoppingToken);
 
                 consumer.Commit(result); // success
                 _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
@@ -205,6 +211,44 @@ public sealed class KafkaEmailConsumer : BackgroundService
                 _logger.LogError(ex, "Unhandled processing error at {TPO}. Backing off briefly.",
                     result?.TopicPartitionOffset);
                 await Task.Delay(TransientBackoffMs, stoppingToken);
+            }
+        }
+    }
+
+    /// Delivers an email, retrying transient failures (e.g. a brief StorageService outage) with exponential backoff.     
+    /// Terminal failures are already handled and logged inside the sender, so this returns normally for them. 
+    /// After the retry budget is exhausted the message is dropped with a Critical log and this returns,
+    /// allowing the caller to commit so the partition is not blocked indefinitely.
+    private async Task DeliverWithRetriesAsync(
+        NotificationEmailDto emailDto, TopicPartitionOffset tpo, CancellationToken ct)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                // Fresh scope per attempt: a new IEmailSender and freshly-resolved
+                // attachment streams (a failed attempt disposes its own).
+                using var scope = _scopeFactory.CreateScope();
+                var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+
+                await sender.SendAsync(emailDto, ct);
+                return; // sent, or dropped for a terminal reason already logged in the sender
+            }
+            catch (TransientDeliveryException ex)
+            {
+                if (attempt >= MaxDeliveryAttempts)
+                {
+                    _logger.LogCritical(ex,
+                        "Dropping message at {TPO} after {Attempts} transient delivery failures.", tpo, attempt);
+                    return; // give up so the caller commits and the partition isn't blocked forever
+                }
+
+                var delay = TimeSpan.FromMilliseconds(DeliveryRetryBaseMs * Math.Pow(2, attempt - 1));
+                _logger.LogWarning(ex,
+                    "Transient delivery failure at {TPO} (attempt {Attempt}/{Max}); retrying in {Delay}.",
+                    tpo, attempt, MaxDeliveryAttempts, delay);
+
+                await Task.Delay(delay, ct);
             }
         }
     }

@@ -12,8 +12,8 @@ public class AttachmentSettings
 
     public static AttachmentSettings BindFromConfiguration(IConfiguration configuration) => new()
     {
-        StorageBaseUrl = configuration["STORAGE_BASE_URL"]
-            ?? throw new ArgumentNullException(nameof(configuration), "STORAGE_BASE_URL is not set."),
+        StorageBaseUrl = configuration["DMS_STORAGE_URL"]
+            ?? throw new ArgumentNullException(nameof(configuration), "DMS_STORAGE_URL is not set."),
 
         MaxTotalBytes = long.TryParse(configuration["ATTACHMENT_MAX_TOTAL_BYTES"], out var v) && v > 0
             ? v

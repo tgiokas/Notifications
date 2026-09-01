@@ -58,8 +58,8 @@ public class SendGridEmailSender : IEmailSender
             message.AddContent(MimeType.Html, htmlBody);
 
             var toAddresses = emailDto.GetAllToRecipients().ToList();
-            if (toAddresses.Count == 0)
-                throw new ArgumentException("At least one recipient is required.");
+            if (!emailDto.HasAnyRecipients())
+                throw new ArgumentException("At least one recipient (To, Cc, or Bcc) is required.");
 
             message.AddTos(toAddresses.Select(r => new EmailAddress(r)).ToList());
 
@@ -98,8 +98,11 @@ public class SendGridEmailSender : IEmailSender
 
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("SendGrid email sent to {Recipients}. Status: {StatusCode}",
-                    string.Join(", ", toAddresses), response.StatusCode);
+                _logger.LogInformation(
+                    "SendGrid email sent. To: [{ToRecipients}] Cc: [{CcRecipients}] Bcc: [{BccRecipients}]",
+                     string.Join(", ", toAddresses),
+                     string.Join(", ", emailDto.GetAllCcRecipients()),
+                     string.Join(", ", emailDto.GetAllBccRecipients()));
             }
             else
             {
@@ -110,12 +113,16 @@ public class SendGridEmailSender : IEmailSender
         }
         catch (AttachmentTooLargeException ex)
         {
-            // Drop the whole email — do not send a partial message.
+            // Drop the whole email and Log
             _logger.LogError(ex, "Email to {Recipient} not sent: attachments exceed the size limit.", emailDto.Recipient);
+        }
+        catch (AttachmentUnavailableException ex) when (ex.IsTransient)
+        {
+            throw new TransientDeliveryException("An attachment was temporarily unavailable.", ex);
         }
         catch (AttachmentUnavailableException ex)
         {
-            // Drop the whole email — a referenced file could not be retrieved.
+            // Drop the whole email and Log
             _logger.LogError(ex, "Email to {Recipient} not sent: an attachment could not be retrieved.", emailDto.Recipient);
         }
         catch (Exception ex)

@@ -39,7 +39,7 @@ public sealed class AttachmentResolver : IAttachmentResolver
             {
                 if (string.IsNullOrWhiteSpace(a.Bucket) || string.IsNullOrWhiteSpace(a.Key))
                 {
-                    // A malformed reference can't be honoured. Per policy, the whole email is dropped.
+                    // A malformed reference, the whole email is dropped.
                     throw new AttachmentUnavailableException(
                         a.Bucket ?? "(null)", a.Key ?? "(null)", 0, "Attachment reference is missing bucket or key.");
                 }
@@ -69,7 +69,7 @@ public sealed class AttachmentResolver : IAttachmentResolver
         }
         catch
         {
-            // Clean up anything already downloaded before the failure propagates.
+            // Clean up anything already downloaded
             foreach (var r in resolved)
                 r.Dispose();
 

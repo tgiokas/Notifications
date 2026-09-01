@@ -1,10 +1,8 @@
 using System.Net;
-
 using Microsoft.Extensions.Logging;
 
 using Notifications.Application.Exceptions;
 using Notifications.Application.Interfaces;
-
 using Notifications.Infrastructure.ApiClients;
 
 namespace Notifications.Infrastructure.ExternalServices;

@@ -36,4 +36,17 @@ public class NotificationEmailDto
 
         return all;
     }
+
+    /// Returns all CC addresses (non-empty entries only).
+    public List<string> GetAllCcRecipients()
+        => Cc?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
+
+    /// Returns all BCC addresses (non-empty entries only).
+    public List<string> GetAllBccRecipients()
+        => Bcc?.Where(b => !string.IsNullOrWhiteSpace(b)).ToList() ?? new List<string>();
+   
+    public bool HasAnyRecipients()
+        => GetAllToRecipients().Count > 0
+           || GetAllCcRecipients().Count > 0
+           || GetAllBccRecipients().Count > 0;
 }
