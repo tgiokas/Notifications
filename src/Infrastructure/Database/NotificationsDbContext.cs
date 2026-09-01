@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Notifications.Domain.Entities;
 
-namespace Notifications.Infrastructure.Persistence;
+namespace Notifications.Database.Persistence;
 
 public class NotificationsDbContext : DbContext
 {
