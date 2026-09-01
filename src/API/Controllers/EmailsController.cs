@@ -10,6 +10,8 @@ namespace Notifications.WebAPI.Controllers;
 /// through IEmailSender (SendGrid/SMTP). Separate from, and unrelated to, the
 /// Kafka pipeline: KafkaEmailConsumer keeps consuming external producers'
 /// messages independently of this endpoint.
+/// Unavailable (404) in a KAFKA_ENABLED=true deployment, which has no outbox
+/// configured — see DisabledEmailPublisher.
 [ApiController]
 [Route("[controller]")]
 public class EmailsController : ControllerBase
@@ -26,6 +28,7 @@ public class EmailsController : ControllerBase
     [HttpPost("send")]
     [ProducesResponseType(typeof(Result<string>), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(Result<string>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Result<string>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Send([FromBody] NotificationEmailDto request, CancellationToken cancellationToken)
     {
         if (request is null)
@@ -36,9 +39,12 @@ public class EmailsController : ControllerBase
         if (!result.Success)
         {
             _logger.LogWarning("Email request rejected: {Message}", result.Message);
-            return result.ErrorCode == "PUBLISH_ERROR"
-                ? StatusCode(StatusCodes.Status503ServiceUnavailable, result)
-                : BadRequest(result);
+            return result.ErrorCode switch
+            {
+                "REST_DISABLED" => NotFound(result),
+                "PUBLISH_ERROR" => StatusCode(StatusCodes.Status503ServiceUnavailable, result),
+                _ => BadRequest(result)
+            };
         }
 
         _logger.LogInformation("Email queued for delivery. To: [{Recipients}]",

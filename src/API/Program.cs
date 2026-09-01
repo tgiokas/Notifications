@@ -51,11 +51,13 @@ var app = builder.Build();
 
 Log.Information("Application is starting...");
 
-// No migration tooling in this pipeline; EnsureCreated is sufficient for the
-// single outbox table and is a no-op once the schema already exists.
+// NotificationsDbContext is only registered when KAFKA_ENABLED=false (outbox
+// profile) — see InfrastructureServiceRegistration. No migration tooling in
+// this pipeline; EnsureCreated is sufficient for the single outbox table and
+// is a no-op once the schema already exists.
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.EnsureCreated();
+    scope.ServiceProvider.GetService<NotificationsDbContext>()?.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())

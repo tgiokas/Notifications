@@ -49,12 +49,13 @@ public static class InfrastructureServiceRegistration
                 break;
         }
 
-        // Kafka consumer: unrelated to the REST API. Consumes whatever external
-        // producers (e.g. the Authentication service) publish onto these topics
-        // and delivers via IEmailSender, same as before the REST endpoint existed.
-        // Optional: set KAFKA_ENABLED=false in an environment with no Kafka broker
-        // at all — the consumer is skipped and the REST/outbox path (which never
-        // touches Kafka) is unaffected. Defaults to true to preserve existing behavior.
+        // KAFKA_ENABLED picks one of two mutually exclusive deployment profiles:
+        //   true  -> KafkaEmailConsumer only. No Postgres/outbox is configured at
+        //            all, matching an environment that has Kafka but no database.
+        //            The REST email endpoint is disabled (see DisabledEmailPublisher).
+        //   false -> Outbox only (EmailsController -> EmailService -> OutboxProcessor
+        //            -> IEmailSender). No Kafka settings are required.
+        // Defaults to true to preserve original behavior for existing deployments.
         var kafkaEnabledRaw = configuration["KAFKA_ENABLED"];
         var kafkaEnabled = string.IsNullOrWhiteSpace(kafkaEnabledRaw)
             ? true
@@ -67,24 +68,24 @@ public static class InfrastructureServiceRegistration
             var kafkaSettings = KafkaSettings.BindFromConfiguration(configuration);
             services.AddSingleton(Options.Create(kafkaSettings));
             services.AddHostedService<KafkaEmailConsumer>();
+
+            // No outbox/Postgres in this profile — the REST endpoint has nothing to
+            // queue into. Still register IEmailPublisher so DI resolves cleanly; it
+            // just reports itself as disabled when called.
+            services.AddSingleton<IEmailPublisher, DisabledEmailPublisher>();
         }
         else
         {
-            Console.WriteLine("KAFKA_ENABLED=false; KafkaEmailConsumer will not start.");
+            var outboxSettings = OutboxSettings.BindFromConfiguration(configuration);
+            services.AddSingleton(Options.Create(outboxSettings));
+
+            services.AddDbContext<NotificationsDbContext>(options =>
+                options.UseNpgsql(outboxSettings.ConnectionString));
+
+            services.AddScoped<IOutboxRepository, OutboxRepository>();
+            services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
+            services.AddHostedService<OutboxProcessor>();
         }
-
-        // Outbox: the REST email endpoint's only delivery path. EmailsController ->
-        // EmailService -> OutboxEmailPublisher writes a row; OutboxProcessor polls it
-        // and delivers via the same IEmailSender above. No Kafka involved.
-        var outboxSettings = OutboxSettings.BindFromConfiguration(configuration);
-        services.AddSingleton(Options.Create(outboxSettings));
-
-        services.AddDbContext<NotificationsDbContext>(options =>
-            options.UseNpgsql(outboxSettings.ConnectionString));
-
-        services.AddScoped<IOutboxRepository, OutboxRepository>();
-        services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
-        services.AddHostedService<OutboxProcessor>();
 
         return services;
     }

@@ -9,8 +9,9 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
-    # kafka1: KafkaEmailConsumer consumes external producers' messages.
-    # postgres: backs the outbox table the REST email endpoint writes to.
+    # KAFKA_ENABLED (.env) picks exactly one of these at runtime — kafka1 for the
+    # Kafka-consumer profile, postgres for the outbox/REST profile. Both are kept
+    # in depends_on so this local stack works either way without editing compose.
     depends_on:
       kafka1:
         condition: service_healthy
