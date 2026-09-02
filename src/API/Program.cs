@@ -58,9 +58,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Auto-migrate. ApplicationDbContext is only registered when KAFKA_ENABLED=false
-// (outbox profile) — see InfrastructureServiceRegistration — so this is skipped
-// entirely in the Kafka-only profile, which has no database at all.
+// Auto-migrate. ApplicationDbContext is only registered when KAFKA_ENABLED=false (outbox profile) 
+// so this is skipped entirely in the Kafka-only profile, which has no database at all.
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetService<ApplicationDbContext>();
