@@ -1,14 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-
-using Notifications.Domain.Entities;
-
 namespace Notifications.Application.Interfaces;
 
-/// Persistence abstraction for the outbox store, so callers depend on this
-/// interface instead of the concrete EF Core ApplicationDbContext (Infrastructure).
+/// Unit-of-work style persistence abstraction: just the commit contract.
+/// Entity access (DbSet<T>) stays on the concrete ApplicationDbContext
+/// (Infrastructure) — repositories that need it depend on that directly.
 public interface IApplicationDbContext
 {
-    DbSet<OutboxMessage> OutboxMessages { get; }
-
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
