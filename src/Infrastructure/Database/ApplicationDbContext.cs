@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 
+using Notifications.Application.Interfaces;
 using Notifications.Domain.Entities;
 
 namespace Notifications.Infrastructure.Database;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {

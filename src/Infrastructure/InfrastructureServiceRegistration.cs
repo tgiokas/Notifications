@@ -80,6 +80,7 @@ public static class InfrastructureServiceRegistration
 
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseNpgsql(outboxSettings.ConnectionString));
+            services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
             services.AddScoped<IOutboxRepository, OutboxRepository>();
             services.AddScoped<IEmailPublisher, OutboxEmailPublisher>();
