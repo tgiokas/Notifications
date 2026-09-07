@@ -50,16 +50,4 @@ public class OutboxRepository : IOutboxRepository
                 .SetProperty(o => o.IsSent, false)
                 .SetProperty(o => o.Error, error));
     }
-
-    public async Task MarkAsDiscardedAsync(int id, string error)
-    {
-        await _dbContext.OutboxMessages
-            .Where(o => o.Id == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(o => o.RetryCount, o => o.RetryCount + 1)
-                .SetProperty(o => o.LastAttemptAt, DateTime.UtcNow)
-                .SetProperty(o => o.ProcessedAt, DateTime.UtcNow)
-                .SetProperty(o => o.Discarded, true)
-                .SetProperty(o => o.Error, error));
-    }
 }

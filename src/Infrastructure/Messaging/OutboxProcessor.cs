@@ -20,8 +20,7 @@ namespace Notifications.Infrastructure.Messaging;
 /// 2. OutboxProcessor picks up pending OutboxMessages.
 /// 3. Sends each via IEmailSender (SendGrid/SMTP) — the same sender
 ///    KafkaEmailConsumer uses in Kafka mode.
-/// 4. Marks as processed (sent), or retries; once the retry budget is
-///    exhausted the message is marked Discarded instead.
+/// 4. Marks as processed (or increments retry on failure).
 ///
 /// If the mail provider is down, messages accumulate in the outbox and get
 /// retried. If the service restarts, unprocessed messages are picked up again.
@@ -100,18 +99,14 @@ public class OutboxProcessor : BackgroundService
                 _logger.LogWarning(ex, "Failed to send outbox message {EventId} (retry {Retry})",
                     message.EventId, message.RetryCount);
 
+                await outboxRepo.MarkAsFailedAsync(message.Id, ex.Message);
+
                 if (message.RetryCount + 1 >= _settings.MaxAttempts)
                 {
-                    await outboxRepo.MarkAsDiscardedAsync(message.Id, ex.Message);
-
                     _logger.LogError(
                         "Outbox message {EventId} (type={EventType}, key={Key}) has exhausted all {Max} retries " +
-                        "and has been discarded. Manual intervention required.",
+                        "and will no longer be processed. Manual intervention required.",
                         message.EventId, message.EventType, message.Key, _settings.MaxAttempts);
-                }
-                else
-                {
-                    await outboxRepo.MarkAsFailedAsync(message.Id, ex.Message);
                 }
             }
         }
