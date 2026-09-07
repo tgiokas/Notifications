@@ -15,7 +15,7 @@ services:
     depends_on:
       kafka1:
         condition: service_healthy
-      postgres:
+      notifications-db:
         condition: service_healthy
     ports:
       - "5042:8080"
@@ -60,26 +60,27 @@ services:
       - kafka1-data:/var/lib/kafka/data
       
       
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
+  notifications-db:
+    image: postgres:15.2
+    container_name: notifications-db
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: notifications
-      POSTGRES_USER: notifications
-      POSTGRES_PASSWORD: notifications
+      POSTGRES_DB: ${NOTIFICATIONS_DB_POSTGRES_DB}
+      POSTGRES_USER: ${NOTIFICATIONS_DB_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${NOTIFICATIONS_DB_POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5434:5432"
+    volumes:
+      - notifications-db-data:/var/lib/postgresql/data
     networks:
       - notification-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U notifications -d notifications"]
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFICATIONS_DB_POSTGRES_USER:-portaluser} -d ${NOTIFICATIONS_DB_POSTGRES_DB:-citizenportaldb}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    restart: always
+      start_period: 30s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -127,7 +128,7 @@ services:
 
 volumes:
   kafka1-data:
-  postgres-data:
+  notifications-db-data:
 
 networks:
   notification-network:
