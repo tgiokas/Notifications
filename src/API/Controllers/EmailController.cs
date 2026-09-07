@@ -14,12 +14,12 @@ namespace Notifications.WebAPI.Controllers;
 /// configured — see DisabledEmailPublisher.
 [ApiController]
 [Route("[controller]")]
-public class EmailsController : ControllerBase
+public class EmailController : ControllerBase
 {
     private readonly IEmailService _emailService;
-    private readonly ILogger<EmailsController> _logger;
+    private readonly ILogger<EmailController> _logger;
 
-    public EmailsController(IEmailService emailService, ILogger<EmailsController> logger)
+    public EmailController(IEmailService emailService, ILogger<EmailController> logger)
     {
         _emailService = emailService;
         _logger = logger;
