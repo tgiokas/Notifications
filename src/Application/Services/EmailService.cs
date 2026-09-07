@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 
 using Notifications.Application.Dtos;
@@ -57,6 +58,29 @@ public class EmailService : IEmailService
         if (emailDto.Type is null && string.IsNullOrWhiteSpace(emailDto.Message))
             return "Either a template Type or a Message body is required.";
 
+        if (!string.IsNullOrWhiteSpace(emailDto.Sender) && !IsValidEmail(emailDto.Sender))
+            return $"Sender '{emailDto.Sender}' is not a valid email address.";
+
+        if (emailDto.ReplyTo is { Count: > 0 })
+        {
+            var invalidReplyTo = emailDto.ReplyTo.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r) && !IsValidEmail(r));
+            if (invalidReplyTo is not null)
+                return $"ReplyTo '{invalidReplyTo}' is not a valid email address.";
+        }
+
         return null;
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            _ = new MailAddress(email);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }
