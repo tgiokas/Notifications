@@ -12,7 +12,13 @@ public class OutboxMessage
     public string Payload { get; set; } = string.Empty;       // JSON-serialized NotificationEmailDto
     public string? Key { get; set; }                          // primary recipient, for correlation
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? ProcessedAt { get; set; }                // null = pending, set = sent
+
+    // Terminal state: null ProcessedAt means still pending/retrying. Once set,
+    // Discarded says how it ended — false: sent successfully; true: the retry
+    // budget was exhausted and it was never delivered.
+    public DateTime? ProcessedAt { get; set; }
+    public bool Discarded { get; set; }
+
     public DateTime? LastAttemptAt { get; set; }               // when the last send attempt was made
     public int RetryCount { get; set; } = 0;
     public string? Error { get; set; }                         // last error, if any
