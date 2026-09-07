@@ -21,7 +21,7 @@ public interface IOutboxRepository
     /// leaves ProcessedAt null so it's picked up again by GetPendingAsync.
     Task MarkAsFailedAsync(int id, string error);
 
-    /// Retry budget exhausted: sets ProcessedAt with IsSent=false so it's
+    /// Retry budget exhausted: sets ProcessedAt and Discarded=true so it's
     /// excluded from GetPendingAsync and distinguishable from a sent message.
     Task MarkAsDiscardedAsync(int id, string error);
 }

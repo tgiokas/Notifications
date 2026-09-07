@@ -14,10 +14,10 @@ public class OutboxMessage
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Terminal state: null ProcessedAt means still pending/retrying. Once set,
-    // IsSent says how it ended — true: sent successfully; false: the retry
-    // budget was exhausted and it was never delivered (discarded).
+    // Discarded says how it ended — false: sent successfully; true: the retry
+    // budget was exhausted and it was never delivered.
     public DateTime? ProcessedAt { get; set; }
-    public bool IsSent { get; set; }
+    public bool Discarded { get; set; }
 
     public DateTime? LastAttemptAt { get; set; }               // when the last send attempt was made
     public int RetryCount { get; set; } = 0;
