@@ -47,6 +47,7 @@ public class OutboxRepository : IOutboxRepository
             .ExecuteUpdateAsync(s => s
                 .SetProperty(o => o.RetryCount, o => o.RetryCount + 1)
                 .SetProperty(o => o.LastAttemptAt, DateTime.UtcNow)
+                .SetProperty(o => o.IsSent, false)
                 .SetProperty(o => o.Error, error));
     }
 
