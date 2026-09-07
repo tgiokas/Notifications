@@ -52,7 +52,7 @@ public static class InfrastructureServiceRegistration
         //   true  -> KafkaEmailConsumer only. No Postgres/outbox is configured at
         //            all, matching an environment that has Kafka but no database.
         //            The REST email endpoint is disabled (see DisabledEmailPublisher).
-        //   false -> Outbox only (EmailsController -> EmailService -> OutboxProcessor
+        //   false -> Outbox only (EmailController -> EmailService -> OutboxProcessor
         //            -> IEmailSender). No Kafka settings are required.
         // Defaults to true to preserve original behavior for existing deployments.
         var kafkaEnabledRaw = configuration["KAFKA_ENABLED"];

@@ -15,7 +15,7 @@ namespace Notifications.Infrastructure.Messaging;
 /// messages via IEmailSender. This completes the Outbox Pattern for the
 /// non-Kafka delivery mode:
 ///
-/// 1. EmailsController -> EmailService -> OutboxEmailPublisher writes an
+/// 1. EmailController -> EmailService -> OutboxEmailPublisher writes an
 ///    OutboxMessage row.
 /// 2. OutboxProcessor picks up pending OutboxMessages.
 /// 3. Sends each via IEmailSender (SendGrid/SMTP) — the same sender
